@@ -13,24 +13,44 @@ const PRICING = [
 ];
 
 const FLOW = [
-  { step: "01", title: "ヒアリング", body: "活動内容・目的・想いを伺います。数分のやり取りでOK。" },
-  { step: "02", title: "たたき台HPの提示", body: "実際に動くデモHPを作ってお見せします。" },
-  { step: "03", title: "修正・仕上げ", body: "ご要望をもとに調整。写真や文章は任せていただいてOK。" },
-  { step: "04", title: "公開", body: "独自ドメインの設定・公開まで対応します。" },
+  {
+    step: "01",
+    title: "arvex が先にHPを作る",
+    body: "Instagramなどの公開情報をもとに、団体さまに合わせたHPをこちらで用意します。依頼する前に実物が見られる状態です。",
+  },
+  {
+    step: "02",
+    title: "完成品をお見せする",
+    body: "出来上がったデモHPをDMまたはメールでご案内。気に入ったら次のステップへ、気に入らなければそこで終わりでOK。",
+  },
+  {
+    step: "03",
+    title: "ヒアリングで100%に仕上げる",
+    body: "気に入っていただけた場合のみ、要望を細かく伺います。写真・文言・構成、すべてご希望どおりに調整します。",
+  },
+  {
+    step: "04",
+    title: "公開・お渡し",
+    body: "独自ドメインの設定から公開まで対応。その後の軽微な修正も無料です。",
+  },
 ];
 
 const FAQ = [
   {
+    q: "どうして依頼する前にHPが出来ているんですか？",
+    a: "arvexは、団体さまが「頼む・頼まない」を決める前に実物を見せる仕組みを作っています。気に入ったものだけお金を払っていただければよいので、ノーリスクで判断できます。",
+  },
+  {
+    q: "勝手に作られていて少し不安です",
+    a: "使用する情報はInstagramや公式サイトなど公開されているもののみです。気に入らなければ「不要」とお返事いただくだけで、こちらですぐHPは削除されます。",
+  },
+  {
     q: "なぜこんなに安いんですか？",
-    a: "制作の多くを自動化しているからです。学生団体の皆さんが予算を気にせず頼めるラインを設計しました。",
+    a: "制作の大部分を自動化しているからです。学生団体の皆さんが予算を気にせず頼めるラインを設計しました。",
   },
   {
-    q: "何日くらいで作れますか？",
-    a: "最短即日、通常は2〜3日で初稿をお見せします。",
-  },
-  {
-    q: "公開後の修正はできますか？",
-    a: "軽微な修正は無料で対応します。大幅な構成変更は追加ページとして扱います。",
+    q: "ヒアリング後、完成まで何日くらい？",
+    a: "通常2〜3日、急ぎの場合は即日で完成版をお渡しします。",
   },
   {
     q: "独自ドメインは必要ですか？",
@@ -82,7 +102,7 @@ export default function Home() {
           </h1>
           <p className="mt-8 text-white/70 text-lg max-w-xl mx-auto leading-relaxed">
             学生団体・サークル専用のホームページ制作。<br />
-            1ページ4,000円から、最短即日で公開まで。
+            依頼する前に、もう完成品が見られる。
           </p>
           <div className="mt-12 flex gap-4 justify-center flex-wrap">
             <a
@@ -105,30 +125,34 @@ export default function Home() {
       <section id="service" className="bg-white py-24 sm:py-32">
         <div className="max-w-6xl mx-auto px-6">
           <p className="text-sm tracking-widest text-black/50 mb-4">SERVICE</p>
-          <h2 className="text-3xl sm:text-5xl font-bold leading-tight mb-16">
-            学生団体のための、<br />
-            最短ホームページ制作。
+          <h2 className="text-3xl sm:text-5xl font-bold leading-tight mb-8">
+            見てから、決める。<br />
+            新しいHP制作のかたち。
           </h2>
+          <p className="text-black/60 max-w-2xl leading-relaxed mb-16">
+            arvex は、ご依頼の前に団体さま専用のHPをこちらで作ってお見せします。<br />
+            気に入ったらヒアリングを始め、100%ご要望を反映した完成版をお渡しします。
+          </p>
           <div className="grid sm:grid-cols-3 gap-10">
             <div>
               <div className="w-12 h-12 border border-black rounded-full flex items-center justify-center mb-6 font-mono">01</div>
+              <h3 className="font-bold text-lg mb-3">見てから決められる</h3>
+              <p className="text-black/70 leading-relaxed text-sm">
+                依頼する前に、もう実物が存在している。気に入ったときだけ次に進める、ノーリスクな判断ができます。
+              </p>
+            </div>
+            <div>
+              <div className="w-12 h-12 border border-black rounded-full flex items-center justify-center mb-6 font-mono">02</div>
               <h3 className="font-bold text-lg mb-3">圧倒的に安い</h3>
               <p className="text-black/70 leading-relaxed text-sm">
                 1ページ4,000円から。10ページ定額プランも15,000円。学生団体の予算感に徹底的に寄り添った価格設計。
               </p>
             </div>
             <div>
-              <div className="w-12 h-12 border border-black rounded-full flex items-center justify-center mb-6 font-mono">02</div>
-              <h3 className="font-bold text-lg mb-3">最短即日</h3>
-              <p className="text-black/70 leading-relaxed text-sm">
-                制作フローを自動化しているため、ヒアリングから初稿提示までが極端に速い。新歓・イベント前の駆け込みも対応。
-              </p>
-            </div>
-            <div>
               <div className="w-12 h-12 border border-black rounded-full flex items-center justify-center mb-6 font-mono">03</div>
-              <h3 className="font-bold text-lg mb-3">伝わる設計</h3>
+              <h3 className="font-bold text-lg mb-3">100%ご要望どおり</h3>
               <p className="text-black/70 leading-relaxed text-sm">
-                集客・信用・募集など、目的に合わせた構成を提案。ただのデザインではなく、成果につながる見せ方を一緒に考えます。
+                たたき台を見た後のヒアリングで、細部まで希望を反映。ただ安いだけでなく、本当に使えるHPに仕上げます。
               </p>
             </div>
           </div>
