@@ -59,9 +59,9 @@ const FAQ = [
 ];
 
 const TEAM = [
-  { role: "CEO", name: "渡邊 悠斗", en: "Yuto Watanabe" },
+  { role: "CEO", name: "渡邊 悠斗", en: "Haruto Watanabe" },
   { role: "COO", name: "末松 結楽", en: "Yura Suematsu" },
-  { role: "CIO", name: "金丸 雄樹", en: "Yuki Kanamaru" },
+  { role: "CIO", name: "金丸 雄樹", en: "Yuki Kanemaru" },
 ];
 
 export default function Home() {
