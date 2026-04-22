@@ -1,0 +1,26 @@
+# DB
+db/arvex.db
+db/*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Env
+.env
+.env.local
+
+# Instagram session
+.ig_session.json
+
+# Next.js
+web/.next/
+web/node_modules/
+web/out/
+
+# OS
+.DS_Store

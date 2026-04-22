@@ -1,0 +1,6 @@
+anthropic
+instagrapi
+playwright
+google-generativeai
+python-dotenv
+requests
