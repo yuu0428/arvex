@@ -71,11 +71,11 @@ export default function Home() {
       <header className="bg-[#0a0a0a] text-white">
         <nav className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
           <Image
-            src={asset("/brand/logo-horizontal.png")}
+            src={asset("/brand/logo-dark.png")}
             alt="arvex"
             width={120}
-            height={32}
-            className="invert brightness-0"
+            height={67}
+            className="w-auto h-10"
             priority
           />
           <div className="hidden sm:flex gap-8 text-sm text-white/70">
@@ -265,11 +265,11 @@ export default function Home() {
       <footer className="bg-[#0a0a0a] text-white/40 border-t border-white/10 py-10">
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-sm">
           <Image
-            src={asset("/brand/logo-horizontal.png")}
+            src={asset("/brand/logo-dark.png")}
             alt="arvex"
             width={80}
-            height={22}
-            className="invert brightness-0 opacity-50"
+            height={45}
+            className="w-auto h-8 opacity-60"
           />
           <p>© 2026 arvex</p>
         </div>
