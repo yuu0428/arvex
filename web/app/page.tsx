@@ -15,18 +15,18 @@ const PRICING = [
 const FLOW = [
   {
     step: "01",
-    title: "arvex が先にHPを作る",
-    body: "Instagramなどの公開情報をもとに、団体さまに合わせたHPをこちらで用意します。依頼する前に実物が見られる状態です。",
+    title: "お問い合わせ・ヒアリング",
+    body: "活動内容・目的・想いを伺います。DMでもメールでも、気軽にご連絡ください。",
   },
   {
     step: "02",
-    title: "完成品をお見せする",
-    body: "出来上がったデモHPをDMまたはメールでご案内。気に入ったら次のステップへ、気に入らなければそこで終わりでOK。",
+    title: "構成・デザイン提案",
+    body: "ヒアリング内容をもとに、ページ構成と見た目のたたき台をご提示します。",
   },
   {
     step: "03",
-    title: "ヒアリングで100%に仕上げる",
-    body: "気に入っていただけた場合のみ、要望を細かく伺います。写真・文言・構成、すべてご希望どおりに調整します。",
+    title: "修正・仕上げ",
+    body: "ご要望に合わせて細部を調整。写真・文言・配色、納得いくまでやり取りします。",
   },
   {
     step: "04",
@@ -37,24 +37,24 @@ const FLOW = [
 
 const FAQ = [
   {
-    q: "どうして依頼する前にHPが出来ているんですか？",
-    a: "arvex では、団体さまに合わせた提案HPをこちらで先に作ってお見せするようにしています。気に入ったものだけお金を払っていただけばよいので、ノーリスクでご判断いただけます。",
-  },
-  {
-    q: "勝手に作られていて少し不安です",
-    a: "使用する情報はInstagramや公式サイトなど公開されているもののみです。気に入らなければ「不要」とお返事いただくだけで、こちらですぐHPは削除されます。",
-  },
-  {
     q: "なぜこんなに安いんですか？",
     a: "学生団体さまの予算感に合わせて価格を設計しているからです。制作コストを抑える工夫を積み重ねて、この金額で成り立たせています。",
   },
   {
-    q: "ヒアリング後、完成まで何日くらい？",
-    a: "通常2〜3日、急ぎの場合は即日で完成版をお渡しします。",
+    q: "完成まで何日くらいかかりますか？",
+    a: "内容にもよりますが、通常2〜3日で初稿をお見せします。急ぎの場合はご相談ください。",
+  },
+  {
+    q: "写真や文章の素材がなくても依頼できますか？",
+    a: "問題ありません。既存のSNS投稿などから活用できるものを選定したり、こちらで整えたりしながら進めていきます。",
+  },
+  {
+    q: "公開後の修正はできますか？",
+    a: "軽微な修正は無料で対応します。大幅な構成変更や追加ページは別途ご相談ください。",
   },
   {
     q: "独自ドメインは必要ですか？",
-    a: "必須ではありません。arvexが用意するサブドメインでも公開できます。",
+    a: "必須ではありません。arvex が用意するサブドメインでも公開できます。",
   },
 ];
 
@@ -101,8 +101,8 @@ export default function Home() {
             活動を伝わる形に。
           </h1>
           <p className="mt-8 text-white/70 text-lg max-w-xl mx-auto leading-relaxed">
-            学生団体・サークル専用のホームページ制作。<br />
-            依頼する前に、もう完成品が見られる。
+            学生団体・サークル専門のホームページ制作。<br />
+            1ページ4,000円から、ご相談ください。
           </p>
           <div className="mt-12 flex gap-4 justify-center flex-wrap">
             <a
@@ -126,33 +126,33 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6">
           <p className="text-sm tracking-widest text-black/50 mb-4">SERVICE</p>
           <h2 className="text-3xl sm:text-5xl font-bold leading-tight mb-8">
-            見てから、決める。<br />
-            新しいHP制作のかたち。
+            学生団体のための、<br />
+            ホームページ制作。
           </h2>
           <p className="text-black/60 max-w-2xl leading-relaxed mb-16">
-            arvex は、ご依頼の前に団体さま専用のHPをこちらで作ってお見せします。<br />
-            気に入ったらヒアリングを始め、100%ご要望を反映した完成版をお渡しします。
+            arvex は、学生団体・サークル専門のホームページ制作サービスです。<br />
+            活動の魅力がきちんと伝わるページを、学生に合った価格で。
           </p>
           <div className="grid sm:grid-cols-3 gap-10">
             <div>
               <div className="w-12 h-12 border border-black rounded-full flex items-center justify-center mb-6 font-mono">01</div>
-              <h3 className="font-bold text-lg mb-3">見てから決められる</h3>
+              <h3 className="font-bold text-lg mb-3">学生団体に特化</h3>
               <p className="text-black/70 leading-relaxed text-sm">
-                依頼する前に、もう実物が存在している。気に入ったときだけ次に進める、ノーリスクな判断ができます。
+                新歓、活動実績、問い合わせ導線。学生団体・サークル特有の目的に合わせてページ構成を設計します。
               </p>
             </div>
             <div>
               <div className="w-12 h-12 border border-black rounded-full flex items-center justify-center mb-6 font-mono">02</div>
-              <h3 className="font-bold text-lg mb-3">圧倒的に安い</h3>
+              <h3 className="font-bold text-lg mb-3">学生に合った価格</h3>
               <p className="text-black/70 leading-relaxed text-sm">
-                1ページ4,000円から。10ページ定額プランも15,000円。学生団体の予算感に徹底的に寄り添った価格設計。
+                1ページ4,000円から、10ページ定額プランは15,000円。予算を気にせずご相談いただける金額です。
               </p>
             </div>
             <div>
               <div className="w-12 h-12 border border-black rounded-full flex items-center justify-center mb-6 font-mono">03</div>
-              <h3 className="font-bold text-lg mb-3">100%ご要望どおり</h3>
+              <h3 className="font-bold text-lg mb-3">丁寧なヒアリング</h3>
               <p className="text-black/70 leading-relaxed text-sm">
-                たたき台を見た後のヒアリングで、細部まで希望を反映。ただ安いだけでなく、本当に使えるHPに仕上げます。
+                活動の想いや目的をじっくり伺い、テンプレではない、団体さまに合った一枚一枚を仕上げます。
               </p>
             </div>
           </div>
