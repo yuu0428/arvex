@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS proposals (
     slug          TEXT UNIQUE NOT NULL,
     vercel_url    TEXT,
     form_url      TEXT,
-    design_brief  TEXT,                   -- JSON: DesignBrief
+    design_brief  TEXT,                   -- DesignBrief or Claude の raw output (audit 用)
+    interview     TEXT,                   -- JSON: [{round, questions, answers}] main agent x persona のヒアリング履歴
     images        TEXT,                   -- JSON: [{role, url, prompt, aspect_ratio, alt}]
     html          TEXT,                   -- 完全な HTML 文字列（<!DOCTYPE html>...</html>）
     status        TEXT DEFAULT 'active',  -- active | deleted

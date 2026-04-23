@@ -95,7 +95,85 @@ class ImageSpec(BaseModel):
         return v
 
 
-# ========================== Prompts ==========================
+# ========================== Interview (agent + sub-agent) prompts ==========================
+
+# Main agent (arvex デザイナー兼ヒアリング担当). 毎ラウンド、追加質問 or DONE 信号を出す
+INTERVIEWER_SYSTEM_PROMPT = """あなたは arvex という HP 制作者のデザイナーです。
+学生団体にヒアリングを行って、その団体のためだけの HP を作るための情報を引き出します。
+
+毎ターン、下記のどちらか 1 ブロックだけを出力します:
+- まだ聞くべきことがあるなら、**追加の質問 2-5 個** を QUESTIONS ブロックで
+- 情報が十分なら、**DONE 信号と判断理由** を DONE ブロックで
+
+### 質問のルール
+
+- **具体を問う**。「貴団体の強みは？」「どんな活動をしていますか？」のような抽象的質問は禁止
+- 素材から読み取れた固有情報（人名・企画名・引用・日付）に触れる質問を優先する
+  - 例: 「取材記事『〇〇』が印象的でした。あの回で一番伝えたかった一言は？」
+  - 例: 「『完璧じゃなくていい』はどの場面で生まれた言葉ですか？」
+- HP 設計に直接効く情報を引き出す:
+  1. 誰に届けたいか（相手の具体像）
+  2. 読者が読み終えた時にどう感じていてほしいか
+  3. この団体にしか語れないエピソードや数字
+  4. ビジュアル面で大事にしたい要素 / 避けたい印象
+  5. CTA の先に何が起きてほしいか
+- 同じことを形を変えて聞かない（これまでの transcript を読んでから作る）
+
+### いつ DONE にするか
+
+- 上記 5 項目が一通り具体に把握できた
+- 読者がページを読み終えた時の感情・行動が 1 文で言える
+- 早すぎる DONE は禁止、浅いまま進めると HP の質が落ちる
+- 逆に、情報が十分そろったら粘らずに DONE する（ループに固執しない）
+
+### 出力形式（必ずどちらか 1 ブロックのみ。前置き / 後書き一切なし）
+
+<!-- QUESTIONS:BEGIN -->
+1. ...
+2. ...
+3. ...
+<!-- QUESTIONS:END -->
+
+または
+
+<!-- DONE:BEGIN -->
+- 把握できたこと: ...
+- 読後感の設計: ...
+- HP の方向性の核: ...
+<!-- DONE:END -->
+"""
+
+
+# Sub-agent (団体 persona). 素材全部を持たせ、団体の立場で答える
+PERSONA_SYSTEM_PROMPT_TEMPLATE = """あなたは学生団体 <{team_name}> のメンバーです。
+自団体について公に知られている情報は以下の通り。これが全てで、これ以外は知らない:
+
+=== 自団体の素材（ここから外れる事実は答えない）===
+
+{material}
+
+=== 素材終わり ===
+
+arvex という HP 制作者からヒアリングを受けています。以下のルールで答えてください:
+
+- 団体の声と語彙で答える。arvex 側の汎用語や借り物のデザイン用語を使わない
+- 具体的に答える（人名・日付・数字・場所・エピソードを使える時は必ず使う）
+- **素材にない事実は絶対に作らない**。分からないなら「素材にない」「ここでは答えられない」「そこはまだ決まっていない」等、正直に答える
+- 質問が曖昧・不明なら聞き返しても良い
+- 一問一答。簡潔に、でも中身は濃く
+- 答えながら、素材から引用できる言葉 / エピソード / 数字があれば使う
+
+### 出力形式（前置き / 後書きなし、各質問に番号付きで対応）
+
+<!-- ANSWERS:BEGIN -->
+1. ...
+2. ...
+3. ...
+<!-- ANSWERS:END -->
+"""
+
+
+# ========================== Main generation prompt ==========================
 
 SYSTEM_PROMPT = """あなたは学生団体のための home page を設計・実装するデザイナー兼エンジニアです。
 
@@ -262,7 +340,12 @@ def generate_images(specs: list[ImageSpec], slug: str, known_source_urls: set[st
 
 # ========================== User prompt ==========================
 
-def _build_user_prompt(org: dict, brand_mark_url: str | None = None, logo_path: Path | None = None) -> str:
+def _build_user_prompt(
+    org: dict,
+    brand_mark_url: str | None = None,
+    logo_path: Path | None = None,
+    interview_transcript: list[dict] | None = None,
+) -> str:
     # 画像リスト
     source_assets = []
     if org.get("source_assets"):
@@ -374,6 +457,8 @@ def _build_user_prompt(org: dict, brand_mark_url: str | None = None, logo_path: 
                 f"（ローカル表示に失敗したため色味は推測で構いません）"
             )
 
+    transcript_block = _format_transcript_for_designer(interview_transcript or [])
+
     return f"""### 団体プロフィール
 名前: {org['name']}
 所属: {org.get('university') or '不明'}
@@ -383,6 +468,10 @@ Instagram: @{org.get('instagram') or ''}
 
 ### ブランドマーク（ロゴ相当のプロフィール画像）
 {brand_mark_section}
+
+### ヒアリング記録（団体本人の声。これを HP 設計の最重要入力として扱う）
+
+{transcript_block}
 
 ### 実在候補（素材から抽出した固有情報リスト）
 {notable_facts_section}
@@ -399,9 +488,181 @@ Instagram: @{org.get('instagram') or ''}
 ### Instagram 投稿 URL（参照可）
 {ig_urls_section}
 
-この団体の HP が何であるべきかを自分で言葉にして、そのまま MDX として実装してください。
+ヒアリング記録と素材に**根ざして**、この団体の HP が何であるべきかを設計し、そのまま MDX として実装してください。
+ヒアリングに無い固有情報 / notable_facts に無い固有情報は**発明しない**（削る or 抽象化）。
 ブランドマーク画像があるなら、最初に Read で開いて視認した上で設計を始めてください。
 """
+
+
+# ========================== Interview loop ==========================
+
+INTERVIEW_MAX_ROUNDS = 10
+
+
+def _format_notable_facts_for_summary(nf: dict) -> str:
+    lines: list[str] = []
+    for label, key in [
+        ("人名", "names"),
+        ("引用", "quotes"),
+        ("日付", "dates"),
+        ("イベント", "events"),
+        ("団体", "orgs"),
+        ("場所", "places"),
+    ]:
+        items = (nf or {}).get(key) or []
+        if items:
+            joined = " / ".join(items[:15])
+            lines.append(f"- {label}: {joined}")
+    return "\n".join(lines) if lines else "（抽出された固有情報なし）"
+
+
+def _build_persona_material(org: dict, notable_facts: dict) -> str:
+    """persona sub-agent に渡す素材の全文ダンプ。"""
+    parts: list[str] = []
+    if org.get("bio_summary"):
+        parts.append(f"### bio / プロフィール\n{org['bio_summary']}")
+    if org.get("notable_facts"):
+        parts.append(f"### 素材から抽出された固有情報\n{_format_notable_facts_for_summary(notable_facts)}")
+    try:
+        source_text = json.loads(org.get("source_text") or "[]")
+    except Exception:
+        source_text = []
+    if source_text:
+        chunks = []
+        for i, s in enumerate(source_text):
+            head = f"[{i+1}] {s.get('type','')}  {s.get('url','')}"
+            body = (s.get("content") or "").strip()
+            chunks.append(f"{head}\n{body}")
+        parts.append("### 素材テキスト\n\n" + "\n\n".join(chunks))
+    try:
+        pub = json.loads(org.get("published_content") or "{}")
+    except Exception:
+        pub = {}
+    articles = pub.get("articles") or []
+    if articles:
+        arc_lines = []
+        for a in articles:
+            line = f"- {a.get('title','')} ({a.get('published_at','')})"
+            if a.get("description"):
+                line += f"\n  概要: {a['description'][:200]}"
+            if a.get("body"):
+                line += f"\n  本文: {a['body'][:1500]}"
+            arc_lines.append(line)
+        parts.append("### 公開記事\n\n" + "\n".join(arc_lines))
+    return "\n\n".join(parts) if parts else "（素材なし）"
+
+
+def _build_interviewer_user_prompt(
+    org: dict, notable_facts: dict, transcript: list[dict]
+) -> str:
+    summary_parts = [
+        f"団体名: {org['name']}",
+        f"Instagram: @{org.get('instagram') or ''}",
+    ]
+    if org.get("bio_summary"):
+        summary_parts.append(f"bio: {org['bio_summary'][:800]}")
+    summary_parts.append("素材から抽出された固有情報:\n" + _format_notable_facts_for_summary(notable_facts))
+    summary = "\n\n".join(summary_parts)
+
+    if not transcript:
+        transcript_block = "（まだヒアリング未実施。最初のラウンドです）"
+    else:
+        rounds = []
+        for entry in transcript:
+            if entry.get("type") == "done":
+                continue
+            r = entry.get("round")
+            q = entry.get("questions", "").strip()
+            a = entry.get("answers", "").strip()
+            rounds.append(f"--- Round {r} ---\n[質問]\n{q}\n\n[回答]\n{a}")
+        transcript_block = "\n\n".join(rounds) if rounds else "（empty）"
+
+    return f"""### 団体概要（参考）
+
+{summary}
+
+### これまでのヒアリング履歴
+
+{transcript_block}
+
+### 次のアクション
+
+追加で聞くべきことがあれば QUESTIONS ブロックで質問を出してください。
+情報が十分なら DONE ブロックで締めてください。
+"""
+
+
+def _run_interview(org: dict) -> list[dict]:
+    """main agent ↔ persona sub-agent のヒアリングループ。transcript を返す。"""
+    try:
+        notable_facts = json.loads(org.get("notable_facts") or "{}")
+    except Exception:
+        notable_facts = {}
+
+    persona_material = _build_persona_material(org, notable_facts)
+    persona_sys = PERSONA_SYSTEM_PROMPT_TEMPLATE.format(
+        team_name=org["name"],
+        material=persona_material,
+    )
+
+    transcript: list[dict] = []
+    for round_num in range(1, INTERVIEW_MAX_ROUNDS + 1):
+        interviewer_user = _build_interviewer_user_prompt(org, notable_facts, transcript)
+        try:
+            interviewer_out = claude_cli.call_text(
+                system_prompt=INTERVIEWER_SYSTEM_PROMPT,
+                user_prompt=interviewer_user,
+                model=MODEL,
+            )
+        except Exception as e:
+            print(f"[interview] round {round_num}: interviewer call failed: {e} — stopping", flush=True)
+            break
+        done_block = claude_cli.extract_block(interviewer_out, "DONE")
+        if done_block:
+            transcript.append({"round": round_num, "type": "done", "content": done_block})
+            print(f"[interview] round {round_num}: DONE", flush=True)
+            break
+        questions = claude_cli.extract_block(interviewer_out, "QUESTIONS")
+        if not questions:
+            print(f"[interview] round {round_num}: no valid block, stopping. raw head: {interviewer_out[:200]}", flush=True)
+            break
+
+        persona_user = (
+            f"arvex からの質問です（Round {round_num}）。各質問に順に番号を付けて答えてください。\n\n"
+            f"{questions}"
+        )
+        try:
+            persona_out = claude_cli.call_text(
+                system_prompt=persona_sys,
+                user_prompt=persona_user,
+                model=MODEL,
+            )
+        except Exception as e:
+            print(f"[interview] round {round_num}: persona call failed: {e} — stopping", flush=True)
+            break
+        answers = claude_cli.extract_block(persona_out, "ANSWERS") or persona_out.strip()
+        transcript.append({
+            "round": round_num,
+            "questions": questions,
+            "answers": answers,
+        })
+        print(f"[interview] round {round_num}: Q/A completed", flush=True)
+    return transcript
+
+
+def _format_transcript_for_designer(transcript: list[dict]) -> str:
+    if not transcript:
+        return "（ヒアリング未実施）"
+    lines = []
+    for entry in transcript:
+        r = entry.get("round")
+        if entry.get("type") == "done":
+            lines.append(f"--- Round {r} (DONE) ---\n{entry.get('content','')}")
+            continue
+        q = entry.get("questions", "").strip()
+        a = entry.get("answers", "").strip()
+        lines.append(f"--- Round {r} ---\n[質問]\n{q}\n\n[回答]\n{a}")
+    return "\n\n".join(lines)
 
 
 # ========================== Visual feedback loop ==========================
@@ -568,6 +829,12 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
         None,
     )
 
+    # ヒアリング: main agent ↔ team persona sub-agent の Q&A ループ。
+    # HP 設計の最上流の input として transcript を生成する。
+    print(f"[interview] starting main ↔ persona loop (max {INTERVIEW_MAX_ROUNDS} rounds) ...", flush=True)
+    interview_transcript = _run_interview(org)
+    print(f"[interview] completed: {len(interview_transcript)} round(s)", flush=True)
+
     with tempfile.TemporaryDirectory(prefix=f"arvex-logo-{slug}-") as tmp_logo_dir:
         tmp_logo_path = Path(tmp_logo_dir)
         logo_path: Path | None = None
@@ -576,7 +843,12 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
             if logo_path:
                 print(f"  brand mark downloaded: {logo_path}", flush=True)
 
-        user_prompt = _build_user_prompt(org, brand_mark_url=brand_mark_url, logo_path=logo_path)
+        user_prompt = _build_user_prompt(
+            org,
+            brand_mark_url=brand_mark_url,
+            logo_path=logo_path,
+            interview_transcript=interview_transcript,
+        )
         arvex_system = SYSTEM_PROMPT.format(components_dir=str(components_dir))
         skill_prelude = _load_frontend_design_prelude()
         if skill_prelude:
@@ -639,6 +911,7 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
         form_url=form_url,
         vercel_url=f"/p/{slug}",
         design_brief=raw,
+        interview=json.dumps(interview_transcript, ensure_ascii=False),
         images=json.dumps(images, ensure_ascii=False),
         mdx=mdx,
     )
