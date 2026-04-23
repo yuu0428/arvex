@@ -1,11 +1,10 @@
+import path from "node:path";
+import dotenv from "dotenv";
 import type { NextConfig } from "next";
 
-const isProd = process.env.NODE_ENV === "production";
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const nextConfig: NextConfig = {
-  output: "export",
-  // basePath は arvex.jp が取れたら外す
-  basePath: isProd ? "/arvex" : "",
   images: {
     unoptimized: true,
   },

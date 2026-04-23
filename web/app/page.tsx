@@ -1,7 +1,6 @@
 import Image from "next/image";
 
-const BASE = process.env.NODE_ENV === "production" ? "/arvex" : "";
-const asset = (p: string) => `${BASE}${p}`;
+const asset = (p: string) => p;
 
 const PRICING = [
   { pages: "1ページ", price: "4,000円", note: "最低プラン" },
