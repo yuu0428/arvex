@@ -13,6 +13,7 @@ Usage:
     python -m scripts.hp_generator <org_id> [form_url]
 """
 import json
+import os
 import re
 import sys
 import tempfile
@@ -40,6 +41,11 @@ def _download_logo(url: str, tmp_dir: Path) -> Path | None:
 
 MODEL = "opus"
 PROPOSAL_TTL_DAYS = 10
+
+# Visual feedback loop: MDX v1 生成 → dev server で render → スクショ → Claude が vision で review → MDX v2
+# ARVEX_VISUAL_REVIEW=0 で無効化。デフォルト有効（dev server 未起動時は自動でスキップ）
+REVIEW_ENABLED = os.environ.get("ARVEX_VISUAL_REVIEW", "1") != "0"
+DEV_SERVER_URL = os.environ.get("ARVEX_DEV_SERVER_URL", "http://localhost:3000").rstrip("/")
 
 # 公式 frontend-design skill（Anthropic, 550k+ installs）を前置して使う。
 # 「generic AI aesthetics を避ける」「bold aesthetic direction を選ぶ」の設計規律を
@@ -398,6 +404,144 @@ Instagram: @{org.get('instagram') or ''}
 """
 
 
+# ========================== Visual feedback loop ==========================
+
+REVISION_SYSTEM_PROMPT = """あなたはさっき生成した MDX を、**実際のレンダリング結果を見て** デザイン観点から改善します。
+
+スクショを Read ツールで両方開き (desktop + mobile)、視覚的に破綻している箇所を見つけ、
+必要なら MDX を全面書き直してください。改善の典型的な観点:
+
+- 余白のリズム（セクション間・要素間・ブロック内が不均衡になってないか）
+- 書体のコントラスト（display vs body の size jump は 3x 以上を推奨）
+- 色のバランス（dominant + accent の比率、timid な均質パレットになってないか）
+- grid / flex のレイアウト破綻（overflow / 折り返しが不自然な箇所）
+- 画像とテキストの competing focal point（hero で画像が強すぎてコピーが埋もれる等）
+- mobile で desktop レイアウトが崩れる箇所
+- 情報量が多すぎる / 少なすぎるセクション（長すぎる段落、薄すぎる grid）
+
+書き直しの制約:
+- **画像の src URL はそのまま維持**（既に解決済みの URL が入っているので触らない）
+- `{{FORM_URL}}` プレースホルダはそのまま残す
+- Theme トークンの書き方、固有情報の整合、MDX 技術制約（`<p>` ネスト禁止、JSX 属性など）は v1 と同じルール
+- 本当に書き直す必要がなければ **v1 をそのまま返してよい**（ただしその判断理由を最初に明示）
+
+### 出力形式
+
+最初に**短い critique**（箇条書きで破綻箇所 or 「問題なし」の判断）を書き、その後:
+
+<!-- MDX:BEGIN -->
+...改訂版（or v1 そのまま）の MDX 全文...
+<!-- MDX:END -->
+"""
+
+
+def _screenshot_proposal(slug: str, out_dir: Path) -> list[Path]:
+    """dev server の /p/<slug> を desktop + mobile でスクショして保存。"""
+    from playwright.sync_api import sync_playwright
+
+    paths: list[Path] = []
+    url = f"{DEV_SERVER_URL}/p/{slug}"
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        for vw_name, vw, vh in [("desktop", 1440, 900), ("mobile", 390, 844)]:
+            ctx = browser.new_context(viewport={"width": vw, "height": vh})
+            page = ctx.new_page()
+            page.goto(url, wait_until="networkidle", timeout=30000)
+            page.wait_for_timeout(1500)
+            path = out_dir / f"{vw_name}.png"
+            page.screenshot(path=str(path), full_page=True)
+            paths.append(path)
+            ctx.close()
+        browser.close()
+    return paths
+
+
+def _revise_mdx_with_visual_feedback(
+    *,
+    mdx_v1: str,
+    slug: str,
+    org: dict,
+    components_dir: Path,
+    logo_path: Path | None,
+    image_urls: set[str],
+    form_url: str | None,
+) -> str | None:
+    """スクショを Claude vision に見せて MDX を改善。成功時 MDX v2、失敗/スキップ時 None。"""
+    if not REVIEW_ENABLED:
+        return None
+    # Dev server reachability
+    try:
+        httpx.get(f"{DEV_SERVER_URL}/p/{slug}", timeout=5)
+    except Exception as e:
+        print(f"[review] dev server unreachable at {DEV_SERVER_URL}: {e} — skipping visual review", flush=True)
+        return None
+
+    with tempfile.TemporaryDirectory(prefix=f"arvex-shots-{slug}-") as tmp_shots:
+        shots_dir = Path(tmp_shots)
+        try:
+            print(f"[review] taking screenshots (desktop + mobile) ...", flush=True)
+            shot_paths = _screenshot_proposal(slug, shots_dir)
+        except Exception as e:
+            print(f"[review] screenshot failed: {e} — skipping", flush=True)
+            return None
+
+        shots_block = "\n".join(f"- `{p}` ({p.stem})" for p in shot_paths)
+        user_prompt = f"""### 団体（変更不要の参考情報）
+名前: {org['name']}
+Instagram: @{org.get('instagram') or ''}
+
+### レンダリング結果のスクショ（Read で両方必ず開いて見る）
+{shots_block}
+
+### 現在の MDX v1
+
+```mdx
+{mdx_v1}
+```
+
+スクショを見て、デザイン観点から改善してください。改善点を列挙した後、改訂版 MDX を出してください。
+問題なければ v1 をそのまま返しても構いません（その判断を明示）。
+"""
+        skill_prelude = _load_frontend_design_prelude()
+        system_parts: list[str] = []
+        if skill_prelude:
+            system_parts.append(f"# Foundation: frontend-design skill\n\n{skill_prelude}")
+        system_parts.append(REVISION_SYSTEM_PROMPT)
+        system_prompt = "\n\n---\n\n".join(system_parts)
+
+        allowed: list[str] = [str(components_dir), str(shots_dir)]
+        if logo_path:
+            allowed.append(str(logo_path.parent))
+
+        print(f"[review] visual feedback inference ...", flush=True)
+        try:
+            raw = claude_cli.call_text(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=MODEL,
+                tools="Read",
+                allowed_dirs=allowed,
+            )
+        except Exception as e:
+            print(f"[review] Claude call failed: {e} — keeping v1", flush=True)
+            return None
+
+        revised = claude_cli.extract_block(raw, "MDX")
+        if not revised:
+            print(f"[review] no MDX block in response — keeping v1", flush=True)
+            return None
+        # form_url は revised MDX 内で `{{FORM_URL}}` のまま残っているはず。validate 用に同じ置換をする
+        check_mdx = revised
+        if form_url:
+            check_mdx = check_mdx.replace("{{FORM_URL}}", form_url)
+        try:
+            validate_mdx(check_mdx, image_urls)
+        except ValueError as e:
+            print(f"[review] revised MDX failed validation: {e} — keeping v1", flush=True)
+            return None
+        return revised
+
+
 # ========================== Main orchestration ==========================
 
 def slugify(handle: str) -> str:
@@ -499,8 +643,32 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
         mdx=mdx,
     )
     db.update_org(org_id, status="proposal_sent")
-    print(f"\nProposal saved: {proposal_id}")
-    print(f"  preview: /p/{slug}")
+    print(f"\nProposal v1 saved: {proposal_id}", flush=True)
+    print(f"  preview: /p/{slug}", flush=True)
+
+    # Visual feedback loop: レンダリング → スクショ → Claude vision で design review → MDX v2
+    # form_url を最後に適用する流れを v2 でも同じにするため、form_url 適用前の mdx_for_review を使う
+    mdx_for_review = mdx
+    if form_url:
+        # revision 側では {{FORM_URL}} を維持させたいので、一旦戻す表記
+        mdx_for_review = mdx.replace(form_url, "{{FORM_URL}}") if form_url in mdx else mdx
+    revised = _revise_mdx_with_visual_feedback(
+        mdx_v1=mdx_for_review,
+        slug=slug,
+        org=org,
+        components_dir=components_dir,
+        logo_path=None,  # logo_path の tmp dir は上の with ブロックで消えているので渡さない
+        image_urls=image_urls,
+        form_url=form_url,
+    )
+    if revised is not None:
+        final_mdx = revised.replace("{{FORM_URL}}", form_url) if form_url else revised
+        db.update_proposal(
+            proposal_id,
+            design_brief=raw + "\n\n---\n\n[VISUAL_REVIEW_REVISED_MDX]\n\n" + revised,
+            mdx=final_mdx,
+        )
+        print(f"[review] revised MDX saved (v2)", flush=True)
     return proposal_id
 
 
