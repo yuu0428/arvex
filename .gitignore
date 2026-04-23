@@ -16,6 +16,7 @@ venv/
 
 # Instagram session
 .ig_session.json
+.ig_state.json
 
 # Next.js
 web/.next/
@@ -24,3 +25,4 @@ web/out/
 
 # OS
 .DS_Store
+.claude/settings.local.json

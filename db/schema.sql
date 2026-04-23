@@ -1,28 +1,34 @@
 CREATE TABLE IF NOT EXISTS orgs (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    university  TEXT,
-    category    TEXT,              -- '集客型' | '信用型' | null
-    instagram   TEXT,
-    email       TEXT,
-    bio_summary TEXT,
-    pain_points TEXT,
-    priority    INTEGER DEFAULT 0,
-    status      TEXT DEFAULT 'discovered',
+    id             TEXT PRIMARY KEY,
+    name           TEXT NOT NULL,
+    university     TEXT,
+    category       TEXT,              -- '集客型' | '信用型' | null
+    instagram      TEXT,
+    email          TEXT,
+    bio_summary    TEXT,
+    pain_points    TEXT,
+    source_assets  TEXT,              -- JSON: [{type, url, caption, posted_at}]
+    source_text    TEXT,              -- JSON: [{type, url, content}] — 生テキスト素材
+    published_content TEXT,           -- JSON: {external_links, articles, episodes} — link_explorer の成果物
+    priority       INTEGER DEFAULT 0,
+    status         TEXT DEFAULT 'discovered',
     -- discovered → analyzed → proposal_sent → negotiating → won | lost | expired
-    created_at  TEXT DEFAULT (datetime('now')),
-    updated_at  TEXT DEFAULT (datetime('now'))
+    created_at     TEXT DEFAULT (datetime('now')),
+    updated_at     TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS proposals (
-    id          TEXT PRIMARY KEY,
-    org_id      TEXT NOT NULL REFERENCES orgs(id),
-    slug        TEXT UNIQUE NOT NULL,
-    vercel_url  TEXT,
-    form_url    TEXT,
-    status      TEXT DEFAULT 'active',   -- active | deleted
-    expires_at  TEXT,
-    created_at  TEXT DEFAULT (datetime('now'))
+    id            TEXT PRIMARY KEY,
+    org_id        TEXT NOT NULL REFERENCES orgs(id),
+    slug          TEXT UNIQUE NOT NULL,
+    vercel_url    TEXT,
+    form_url      TEXT,
+    design_brief  TEXT,                   -- JSON: DesignBrief
+    images        TEXT,                   -- JSON: [{role, url, prompt, aspect_ratio, alt}]
+    html          TEXT,                   -- 完全な HTML 文字列（<!DOCTYPE html>...</html>）
+    status        TEXT DEFAULT 'active',  -- active | deleted
+    expires_at    TEXT,
+    created_at    TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS outreach (
