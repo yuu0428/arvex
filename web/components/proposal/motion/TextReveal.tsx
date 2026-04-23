@@ -1,17 +1,17 @@
 "use client";
 
-import { motion, useInView, useReducedMotion } from "motion/react";
-import { useRef } from "react";
+import { motion, useInView } from "motion/react";
+import { useRef, ReactNode } from "react";
 
 type TextRevealProps = {
-  children: string;
-  /** 単語単位か文字単位か。デフォルトは単語 */
+  children: ReactNode;
   by?: "word" | "char";
   delay?: number;
   stagger?: number;
 };
 
-/** 文字列を単語・文字単位で分割して、下から上へ順番に表出させる。h1/h2 のエントリに。 */
+/** 文字列を単語/文字単位で下から表出。SSR/CSR で必ず同じ分割結果を描画する。
+ *  children が string でない場合（React 要素など）はそのまま出す（保険）。 */
 export function TextReveal({
   children,
   by = "word",
@@ -20,16 +20,13 @@ export function TextReveal({
 }: TextRevealProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-30px" });
-  const reduce = useReducedMotion();
 
-  const segments =
-    by === "char"
-      ? Array.from(children)
-      : children.split(/(\s+)/);
-
-  if (reduce) {
+  if (typeof children !== "string") {
     return <span ref={ref}>{children}</span>;
   }
+
+  const segments =
+    by === "char" ? Array.from(children) : children.split(/(\s+)/);
 
   return (
     <span ref={ref} style={{ display: "inline-block" }}>

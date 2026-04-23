@@ -21,17 +21,27 @@
 - 特別プラン: 15000円で10枚まで
 - ドメインサブスク: 2000円/年
 
-## 提案HP の生成（3段階パイプライン）
-- Stage 1: Claude CLI が DesignBrief JSON を生成（Pydantic 検証）
-- Stage 2: Codex CLI が画像を並列生成 → Vercel Blob にアップロード
-- Stage 3: Claude CLI が完全な HTML 文書を生成 → BeautifulSoup で検証
-- URL: `/p/[slug]`（Next.js Route Handler が Turso から `html` を読んで `text/html` で直接返す。React バイパス）
+## 提案HP の生成（単一ターン MDX パイプライン）
+- Claude 1 回の推論で `IMAGE_SPECS` JSON + MDX（画像は `{{img:ROLE}}` プレースホルダで参照）を出力
+- Python が spec 通りに画像を reuse / Codex で生成 → Blob に upload → `{{img:ROLE}}` を実 URL に置換
+- `{{FORM_URL}}` は outreach 送信時に form URL に置換される
+- URL: `/p/[slug]` は Next.js App Router が Turso から `mdx` を読んで `next-mdx-remote/rsc` で描画
 - 削除条件: 10日無返信 / 交渉失敗 / 納品済み（`proposals.status='deleted'` or `expires_at` 超過で 404）
 
+## HP 生成の設計原則
+**ゴールは「この団体のためだけに作られた HP」感の最大化**。自動化や美的完成度は手段。
+- プロンプトに**メニューを供給しない**（部品列挙 / section テンプレ / concept 例 / register 例 / 禁止ジャンル名リスト）。メニューを書いた瞬間 Claude はそこから選ぶ装置になり、団体によらず同じ骨格になる
+- プロンプトに書いた単語は全て **priming** になる。存在しない概念は書かない（「editorial を使うな」と書くと editorial が working memory に入る）
+- Claude からデザイン判断を剥奪し、`web/components/proposal/Theme.tsx` に集約: 要素 (`h1`-`h6` / `p` / `section` / `a` / `blockquote` 等) の見た目は Theme の CSS が自動適用する。Claude は**意味論タグのみ**書く
+- Theme の typography 必須キー: `h1`, `h2`, `h3`, `body-md`, `label-sm` — これを変えると要素自動スタイルが効かない
+- **素材密度が理解感を作る**: scraper.py が notable_facts（人名・日付・イベント名・団体名・場所・引用句を正規表現抽出）を生成し、hp_generator が Claude に「実在候補リスト」として渡す。これに無い固有情報は書かず、削る or 抽象化する
+- 画像 placeholder は**リテラル文字列の属性値だけ**（JSX テンプレートリテラル内で `${var}` と組み合わせない。Python 置換器が拾えず 404 になる）
+
 ## LLM / 画像生成は全て CLI 経由
-- **Claude**: `claude -p --system-prompt ... --tools "" --no-session-persistence --model opus`（`scripts/claude_cli.py`）
+- **Claude**: `claude -p --system-prompt ... --tools "Read" --no-session-persistence --model opus --permission-mode bypassPermissions --add-dir ...`（`scripts/claude_cli.py`）
   - Pro/Max 契約を流用するので ANTHROPIC_API_KEY は不要
   - `--bare` は使わない（API キーを要求してしまうため）
+  - hp_generator は Claude に `web/components/proposal/` と一時 logo dir を Read 許可する（部品 props を実装から読む + ロゴ画像を視認するため）
 - **Codex**: `codex exec -s workspace-write -c shell_environment_policy.inherit=all`（`scripts/codex_image.py`）
 - **Vercel Blob**: `vercel blob put --rw-token $BLOB_READ_WRITE_TOKEN` を cwd=web/ で実行（`scripts/blob.py`）
 

@@ -27,7 +27,9 @@ USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
-MAX_POSTS = 8  # 直近何投稿まで取るか
+MAX_POSTS = 20  # 直近何投稿まで取るか（多いほど素材密度が上がる）
+EXTERNAL_MAX_CHARS = 20000  # 外部ページ1本あたりの抽出上限
+MAX_NOTE_BODIES = 6  # note 記事本文を fetch する件数（最新 N 本）
 
 
 def ensure_logged_in(timeout_sec: int = 600):
@@ -98,14 +100,31 @@ def _collect_images(page: Page, max_posts: int) -> tuple[str | None, list[dict]]
 
 
 def _fetch_post_text(page: Page, post_url: str) -> str:
-    """投稿ページの og:description（生のまま）を返す。
+    """投稿ページの full caption を可能な限り抽出。
 
-    加工は Claude 側に任せる方針なので、regex での切り出しはしない。
+    og:description は IG によって ~300 chars で切られる。
+    article 全体の innerText を取れば UI 雑音込みでも全文が入る。
+    Claude 側で読ませるので雑音は問題にならない。
     失敗時は空文字。
     """
     try:
         page.goto(post_url, wait_until="domcontentloaded", timeout=20000)
-        time.sleep(0.8)
+        time.sleep(1.2)
+        # article 全体の innerText を優先。より多くのテキストが入る。
+        txt = page.evaluate(
+            """
+            () => {
+              const art = document.querySelector('article[role="presentation"]')
+                       || document.querySelector('article')
+                       || document.querySelector('main');
+              if (!art) return '';
+              return art.innerText || '';
+            }
+            """
+        ) or ""
+        if txt and len(txt.strip()) > 40:
+            return txt.strip()
+        # fallback: og:description
         og = page.evaluate(
             "() => document.querySelector('meta[property=\"og:description\"]')?.content "
             "|| document.querySelector('meta[name=\"description\"]')?.content || ''"
@@ -115,7 +134,7 @@ def _fetch_post_text(page: Page, post_url: str) -> str:
         return ""
 
 
-def _fetch_external_text(url: str, max_chars: int = 6000) -> str:
+def _fetch_external_text(url: str, max_chars: int = EXTERNAL_MAX_CHARS) -> str:
     """外部 URL（note / 公式サイト等）の本文テキストをざっくり取る。
 
     HTML から script/style を除去して text を抽出。Claude に読ませる用。
@@ -319,6 +338,84 @@ def _extract_email(text: str) -> str | None:
     return m.group(0) if m else None
 
 
+# ======================== Notable facts extraction ========================
+# 目的: 素材中に実在する固有情報（人名・日付・イベント名・団体名・場所・引用）を
+# 正規表現で抽出し、Claude に「発明するな、これを使え」と渡す。
+# メニューではなく verified-from-source の候補リスト。
+# 完全性より再現性優先: 偽陽性は OK、事実でないものを作らせないことが大事。
+
+# 人名: 漢字 2-5 or カタカナ 2-8 + honorific or 役職
+_NAME_HONORIFIC_RE = re.compile(
+    r"([一-龥々]{1,5}(?:[一-龥々]|[ぁ-ん]){0,4}|[ァ-ヴー]{2,10})"
+    r"(さん|氏|先生|監督|代表(?:理事|取締役)?|理事(?:長)?|会長|社長|教授|準教授|部長|校長)"
+)
+# 「〜」内の引用句（8〜80 文字くらい）
+_QUOTE_RE = re.compile(r"「([^「」]{8,80})」")
+# 日付
+_DATE_PATTERNS = [
+    re.compile(r"\b(20\d{2})[./年-](\d{1,2})[./月-](\d{1,2})日?"),
+    re.compile(r"(\d{1,2})月(\d{1,2})日"),
+]
+# イベント・企画名: 『〜』 パターン, XXXまつり, XXXフェス, XXXプロジェクト
+_EVENT_RE = re.compile(
+    r"(『[^『』]{2,30}』|[一-龥ァ-ヴーA-Za-z々\d ]{2,20}(?:まつり|フェスティバル|フェス|プロジェクト|ワークショップ|シンポジウム|キャンペーン|コンテスト))"
+)
+# 団体名
+_ORG_RE = re.compile(
+    r"(NPO法人[一-龥ァ-ヴー々A-Za-z ]{1,20}|一般社団法人[一-龥ァ-ヴー々A-Za-z ]{1,20}|公益財団法人[一-龥ァ-ヴー々A-Za-z ]{1,20}|株式会社[一-龥ァ-ヴー々A-Za-z ]{1,20}|学生団体[一-龥ァ-ヴー々A-Za-z ]{1,20}|[一-龥ァ-ヴー々]{2,15}(?:協会|センター|財団|同盟|連合|研究会))"
+)
+# 地名・場所ヒント
+_PLACE_RE = re.compile(
+    r"([一-龥ァ-ヴー々]{2,10}(?:駅|市|町|村|区|県|府|都|町内|商店街|神社|寺|公園|城|町|温泉|温泉郷))"
+)
+# URL は別扱いで全取得
+_URL_RE = re.compile(r"https?://[^\s　、。,)\]」』》]+")
+
+
+def _dedupe_ordered(items: list[str], limit: int | None = None) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for x in items:
+        x = x.strip()
+        if not x or x in seen:
+            continue
+        seen.add(x)
+        out.append(x)
+        if limit and len(out) >= limit:
+            break
+    return out
+
+
+def extract_notable_facts(corpus: str) -> dict:
+    """素材全文から固有情報候補を抽出。
+
+    Claude に「これが素材に実在する情報。これ以外は発明しない」と示すための辞書。
+    偽陽性は OK（Claude が適切に使い分ける）。見落としが一番まずい。
+    """
+    names = [m.group(0) for m in _NAME_HONORIFIC_RE.finditer(corpus)]
+    quotes = [m.group(1) for m in _QUOTE_RE.finditer(corpus)]
+    events = [m.group(1) for m in _EVENT_RE.finditer(corpus)]
+    orgs = [m.group(1) for m in _ORG_RE.finditer(corpus)]
+    places = [m.group(1) for m in _PLACE_RE.finditer(corpus)]
+    urls = [m.group(0) for m in _URL_RE.finditer(corpus)]
+
+    dates: list[str] = []
+    for m in _DATE_PATTERNS[0].finditer(corpus):
+        dates.append(f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}")
+    for m in _DATE_PATTERNS[1].finditer(corpus):
+        dates.append(f"{int(m.group(1))}月{int(m.group(2))}日")
+
+    return {
+        "names": _dedupe_ordered(names, limit=40),
+        "quotes": _dedupe_ordered(quotes, limit=30),
+        "dates": _dedupe_ordered(dates, limit=30),
+        "events": _dedupe_ordered(events, limit=30),
+        "orgs": _dedupe_ordered(orgs, limit=20),
+        "places": _dedupe_ordered(places, limit=20),
+        "urls": _dedupe_ordered(urls, limit=40),
+    }
+
+
 def scrape_and_save(handle: str, university: str | None = None) -> str:
     ensure_logged_in()
     print(f"fetching profile @{handle} ...", flush=True)
@@ -368,10 +465,32 @@ def scrape_and_save(handle: str, university: str | None = None) -> str:
     # 4) 公開コンテンツの実URLを link_explorer で拾う（複数 seed 対応）
     print(f"exploring published content ...", flush=True)
     seeds = profile.get("external_urls") or ([ext] if ext else [])
-    published_content = link_explorer.explore(seeds)
+    published_content = link_explorer.explore(seeds, fetch_article_bodies=MAX_NOTE_BODIES)
     print(
         f"  {len(published_content['external_links'])} external links / "
-        f"{len(published_content['articles'])} articles",
+        f"{len(published_content['articles'])} articles "
+        f"({sum(1 for a in published_content['articles'] if a.get('body'))} with body)",
+        flush=True,
+    )
+
+    # 5) notable_facts 抽出: 全素材コーパスから固有情報を regex で取り出す
+    corpus_parts: list[str] = [profile.get("biography") or ""]
+    for st in source_text:
+        corpus_parts.append(st.get("content") or "")
+    for art in published_content.get("articles") or []:
+        corpus_parts.append(art.get("title") or "")
+        corpus_parts.append(art.get("description") or "")
+        corpus_parts.append(art.get("body") or "")
+    corpus = "\n".join(p for p in corpus_parts if p)
+    notable_facts = extract_notable_facts(corpus)
+    print(
+        f"  notable_facts: "
+        f"{len(notable_facts['names'])} names, "
+        f"{len(notable_facts['quotes'])} quotes, "
+        f"{len(notable_facts['dates'])} dates, "
+        f"{len(notable_facts['events'])} events, "
+        f"{len(notable_facts['orgs'])} orgs, "
+        f"{len(notable_facts['places'])} places",
         flush=True,
     )
 
@@ -388,6 +507,7 @@ def scrape_and_save(handle: str, university: str | None = None) -> str:
         source_assets=json.dumps(source_assets, ensure_ascii=False),
         source_text=json.dumps(source_text, ensure_ascii=False),
         published_content=json.dumps(published_content, ensure_ascii=False),
+        notable_facts=json.dumps(notable_facts, ensure_ascii=False),
     )
     return org_id
 

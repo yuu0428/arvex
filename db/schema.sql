@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS orgs (
     pain_points    TEXT,
     source_assets  TEXT,              -- JSON: [{type, url, caption, posted_at}]
     source_text    TEXT,              -- JSON: [{type, url, content}] — 生テキスト素材
-    published_content TEXT,           -- JSON: {external_links, articles, episodes} — link_explorer の成果物
+    published_content TEXT,           -- JSON: {external_links, articles} — link_explorer の成果物
+    notable_facts  TEXT,              -- JSON: {names, dates, events, orgs, places, quotes} — 素材から regex 抽出した固有情報
     priority       INTEGER DEFAULT 0,
     status         TEXT DEFAULT 'discovered',
     -- discovered → analyzed → proposal_sent → negotiating → won | lost | expired

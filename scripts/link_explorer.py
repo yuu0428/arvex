@@ -97,6 +97,30 @@ def fetch_note_articles(user_url: str) -> list[dict]:
     return items
 
 
+def fetch_note_article_body(url: str, max_chars: int = 8000) -> str:
+    """note 記事ページから本文テキストを取得。
+
+    note は article 本文を `<div class="note-common-styles__textnote-body">` か、
+    最近のレイアウトだと `<article>` 内の段落にまとめている。
+    確実な path が見つからない場合 article の innerText を使う。失敗時は空文字。
+    """
+    r = _get(url, timeout=25)
+    if not r:
+        return ""
+    html = r.text
+    # script/style 除去
+    html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    # article タグだけ抽出（noteの記事本体）
+    m = re.search(r"<article[^>]*>(.*?)</article>", html, flags=re.DOTALL | re.IGNORECASE)
+    body_html = m.group(1) if m else html
+    # タグ除去
+    text = re.sub(r"<[^>]+>", " ", body_html)
+    text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:max_chars]
+
+
 # ================ classification ================
 
 def classify(url: str) -> str:
@@ -129,13 +153,16 @@ def classify(url: str) -> str:
 
 # ================ main orchestration ================
 
-def explore(seed_urls: str | list[str] | None) -> dict:
+def explore(seed_urls: str | list[str] | None, fetch_article_bodies: int = 0) -> dict:
     """seed URL 群（プロフィール bio に書かれた外部リンク）から辿れる公開コンテンツを集める。
+
+    - fetch_article_bodies: 最新 N 本の記事本文を fetch して `body` フィールドに入れる。
+      0 なら本文 fetch なし。
 
     戻り値:
         {
           "external_links": [ {url, platform}, ... ],
-          "articles":       [ {platform, title, url, published_at, description}, ... ]
+          "articles":       [ {platform, title, url, published_at, description, body?}, ... ]
         }
     """
     empty = {"external_links": [], "articles": []}
@@ -166,6 +193,14 @@ def explore(seed_urls: str | list[str] | None) -> dict:
     for l in classified:
         if l["platform"] == "note":
             articles.extend(fetch_note_articles(l["url"]))
+
+    # Step 4: 本文 fetch（最新 N 本）
+    if fetch_article_bodies > 0 and articles:
+        for a in articles[:fetch_article_bodies]:
+            if a.get("platform") == "note" and a.get("url"):
+                body = fetch_note_article_body(a["url"])
+                if body:
+                    a["body"] = body
 
     return {
         "external_links": classified,

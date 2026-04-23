@@ -23,6 +23,25 @@ import { Ticker } from "./motion/Ticker";
 import { TextReveal } from "./motion/TextReveal";
 import { Marquee } from "./motion/Marquee";
 
+// raw motion elements — Claude が自作モーションを書くための primitives
+import {
+  MotionDiv,
+  MotionSection,
+  MotionSpan,
+  MotionA,
+  MotionArticle,
+  MotionHeader,
+  MotionFooter,
+  MotionH1,
+  MotionH2,
+  MotionH3,
+  MotionP,
+  MotionUl,
+  MotionLi,
+  MotionImg,
+  MotionButton,
+} from "./motion/primitives";
+
 /**
  * MDX の <Tag /> で使えるコンポーネントを束ねたマップ。
  * next-mdx-remote の components prop にそのまま渡す。
@@ -48,7 +67,7 @@ export const proposalComponents = {
   Footer,
   FooterLine,
   FooterLink,
-  // motion
+  // motion wrappers (既成品。そのまま使う想定)
   Reveal,
   Stagger,
   Parallax,
@@ -57,4 +76,20 @@ export const proposalComponents = {
   Ticker,
   TextReveal,
   Marquee,
+  // raw motion primitives (自作モーション用。initial / animate / whileInView 等を直接書く)
+  MotionDiv,
+  MotionSection,
+  MotionSpan,
+  MotionA,
+  MotionArticle,
+  MotionHeader,
+  MotionFooter,
+  MotionH1,
+  MotionH2,
+  MotionH3,
+  MotionP,
+  MotionUl,
+  MotionLi,
+  MotionImg,
+  MotionButton,
 };

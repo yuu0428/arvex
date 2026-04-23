@@ -2,13 +2,16 @@ import { ReactNode } from "react";
 
 type NavProps = {
   brand: string;
+  /** ロゴ画像 URL（あれば brand 文字と並べて表示） */
+  logo?: string;
+  logoAlt?: string;
   children?: ReactNode;
 };
 
 /**
- * 上部のナビ。children に <NavItem> を並べる。
+ * 上部のナビ。brand（団体名）+ 任意の logo 画像 + children に <NavItem>。
  */
-export function Nav({ brand, children }: NavProps) {
+export function Nav({ brand, logo, logoAlt, children }: NavProps) {
   return (
     <nav
       className="sticky top-0 z-10 px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between backdrop-blur"
@@ -19,10 +22,18 @@ export function Nav({ brand, children }: NavProps) {
     >
       <a
         href="#"
-        className="font-bold text-base sm:text-lg no-underline"
+        className="flex items-center gap-3 font-bold text-base sm:text-lg no-underline"
         style={{ color: "var(--color-primary)" }}
       >
-        {brand}
+        {logo && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logo}
+            alt={logoAlt || brand}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover"
+          />
+        )}
+        <span>{brand}</span>
       </a>
       {children && (
         <ul className="hidden sm:flex items-center gap-6 text-sm list-none m-0 p-0">
@@ -43,10 +54,18 @@ export function NavItem({ href, label }: NavItemProps) {
     <li className="m-0">
       <a
         href={href}
-        className="no-underline opacity-70 hover:opacity-100 transition"
+        className={[
+          "group no-underline opacity-80 hover:opacity-100 transition-opacity",
+          "relative inline-block py-1",
+        ].join(" ")}
         style={{ color: "inherit" }}
       >
         {label}
+        <span
+          aria-hidden
+          className="absolute left-0 bottom-0 h-[1.5px] w-full origin-left scale-x-0 transition-transform duration-300 ease-out group-hover:scale-x-100"
+          style={{ background: "currentColor" }}
+        />
       </a>
     </li>
   );

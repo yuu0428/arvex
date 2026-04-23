@@ -3,6 +3,9 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
 import { proposalComponents } from "@/components/proposal/registry";
 import { SmoothScroll } from "@/components/proposal/motion/SmoothScroll";
+import { ScrollProgress } from "@/components/proposal/motion/ScrollProgress";
+import { CursorLight } from "@/components/proposal/motion/CursorLight";
+import { MotionRoot } from "@/components/proposal/motion/MotionRoot";
 
 function getDb() {
   return createClient({
@@ -34,9 +37,13 @@ export default async function ProposalPage({
   }
 
   return (
-    <div className="proposal-root">
-      <SmoothScroll />
-      <MDXRemote source={row.mdx} components={proposalComponents} />
-    </div>
+    <MotionRoot>
+      <div className="proposal-root">
+        <SmoothScroll />
+        <ScrollProgress />
+        <CursorLight />
+        <MDXRemote source={row.mdx} components={proposalComponents} />
+      </div>
+    </MotionRoot>
   );
 }

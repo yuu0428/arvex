@@ -18,16 +18,28 @@ def call_text(
     system_prompt: str,
     user_prompt: str,
     model: str = "opus",
-    timeout: int = 600,
+    timeout: int = 900,
+    tools: str = "",
+    allowed_dirs: list[str] | None = None,
 ) -> str:
-    """Claude に1回プロンプトを投げて結果のテキストを返す（単発・セッション持続なし）。"""
+    """Claude に1回プロンプトを投げて結果のテキストを返す（単発・セッション持続なし）。
+
+    - tools: Claude に許可するツール（"" で禁止、"Read" で Read のみ、"default" で全部）
+    - allowed_dirs: Read 時のアクセス許可ディレクトリ
+    """
+    extra: list[str] = []
+    if allowed_dirs:
+        extra.extend(["--add-dir", *allowed_dirs])
+    if tools:
+        extra.extend(["--permission-mode", "bypassPermissions"])
     cmd = [
         "claude", "-p", user_prompt,
         "--system-prompt", system_prompt,
-        "--tools", "",
+        "--tools", tools,
         "--no-session-persistence",
         "--model", model,
         "--output-format", "text",
+        *extra,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
@@ -100,21 +112,33 @@ def session_turn(
     resume: bool = False,
     model: str = "opus",
     timeout: int = 900,
+    tools: str = "",
+    allowed_dirs: list[str] | None = None,
 ) -> str:
     """指定セッションで1ターン回す。
 
     - 初回（resume=False）: `--session-id` で新規セッション起動 + `--system-prompt` を渡す
     - 2回目以降（resume=True）: `--resume` でセッション再開（system は引き継がれる）
+    - tools: Claude に許可するツール（"" で禁止、"Read" で Read のみ、"default" で全部）
+    - allowed_dirs: Read 時のアクセス許可ディレクトリ
 
     セッション永続化を使うので `--no-session-persistence` は**付けない**。
     """
+    extra: list[str] = []
+    if allowed_dirs:
+        extra.extend(["--add-dir", *allowed_dirs])
+    if tools:
+        # Read を許可する場合、subprocess 実行でユーザー確認が出ないように bypass
+        extra.extend(["--permission-mode", "bypassPermissions"])
+
     if resume:
         cmd = [
             "claude", "-p", user_prompt,
             "--resume", session_id,
-            "--tools", "",
+            "--tools", tools,
             "--model", model,
             "--output-format", "text",
+            *extra,
         ]
     else:
         if system_prompt is None:
@@ -123,9 +147,10 @@ def session_turn(
             "claude", "-p", user_prompt,
             "--session-id", session_id,
             "--system-prompt", system_prompt,
-            "--tools", "",
+            "--tools", tools,
             "--model", model,
             "--output-format", "text",
+            *extra,
         ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
