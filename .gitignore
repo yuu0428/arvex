@@ -18,6 +18,9 @@ venv/
 .ig_session.json
 .ig_state.json
 
+# Codex CLI local install (contains auth)
+.codex-nested/
+
 # Next.js
 web/.next/
 web/node_modules/
