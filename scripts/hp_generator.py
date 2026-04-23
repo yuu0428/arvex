@@ -41,6 +41,27 @@ def _download_logo(url: str, tmp_dir: Path) -> Path | None:
 MODEL = "opus"
 PROPOSAL_TTL_DAYS = 10
 
+# 公式 frontend-design skill（Anthropic, 550k+ installs）を前置して使う。
+# 「generic AI aesthetics を避ける」「bold aesthetic direction を選ぶ」の設計規律を
+# 公式に任せ、arvex の SYSTEM_PROMPT は「団体理解」「notable_facts」「MDX 技術制約」
+# に集中させる。skill が未インストールなら prelude 無しで動く（影響は品質の微低下のみ）。
+_FRONTEND_DESIGN_SKILL_PATHS = [
+    Path.home() / ".claude/plugins/marketplaces/claude-plugins-official/plugins/frontend-design/skills/frontend-design/SKILL.md",
+    Path.home() / ".claude/plugins/cache/claude-plugins-official/frontend-design/unknown/skills/frontend-design/SKILL.md",
+]
+
+
+def _load_frontend_design_prelude() -> str:
+    for p in _FRONTEND_DESIGN_SKILL_PATHS:
+        if p.exists():
+            content = p.read_text(encoding="utf-8")
+            # YAML frontmatter を剥がす
+            m = re.match(r"^---\n.*?\n---\n", content, re.DOTALL)
+            if m:
+                content = content[m.end():]
+            return content.strip()
+    return ""
+
 
 # ========================== Image spec ==========================
 
@@ -412,7 +433,20 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
                 print(f"  brand mark downloaded: {logo_path}", flush=True)
 
         user_prompt = _build_user_prompt(org, brand_mark_url=brand_mark_url, logo_path=logo_path)
-        system_prompt = SYSTEM_PROMPT.format(components_dir=str(components_dir))
+        arvex_system = SYSTEM_PROMPT.format(components_dir=str(components_dir))
+        skill_prelude = _load_frontend_design_prelude()
+        if skill_prelude:
+            system_prompt = (
+                "# Foundation: frontend-design skill\n\n"
+                f"{skill_prelude}\n\n"
+                "---\n\n"
+                "# arvex-specific rules (これが優先。上の foundation は設計規律として参照する)\n\n"
+                f"{arvex_system}"
+            )
+            print(f"[generate] frontend-design skill prelude loaded ({len(skill_prelude)} chars)", flush=True)
+        else:
+            system_prompt = arvex_system
+            print(f"[generate] frontend-design skill not found, using arvex prompt only", flush=True)
 
         allowed: list[str] = [str(components_dir)]
         if logo_path:
