@@ -3,18 +3,11 @@
 Usage:
     python -m scripts.classifier <org_id>
 """
-import json
-import os
 import sys
 
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from scripts import claude_cli, db
 
-from scripts import db
-
-load_dotenv()
-
-MODEL = "claude-opus-4-7"
+MODEL = "opus"
 
 SYSTEM_PROMPT = """あなたは学生団体・サークルのHP提案を行う arvex のアナリストです。
 団体のInstagramプロフィール情報から、以下を判定してください。
@@ -34,23 +27,13 @@ SYSTEM_PROMPT = """あなたは学生団体・サークルのHP提案を行う a
 
 
 def classify(org: dict) -> dict:
-    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     user_prompt = f"""団体名: {org['name']}
 大学: {org.get('university') or '不明'}
 Instagram: @{org.get('instagram') or ''}
 プロフィール本文:
 {org.get('bio_summary') or '(なし)'}
 """
-    msg = client.messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-    text = msg.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.strip("`").split("\n", 1)[1].rsplit("\n", 1)[0]
-    return json.loads(text)
+    return claude_cli.call_json(SYSTEM_PROMPT, user_prompt, model=MODEL, timeout=180)
 
 
 def classify_and_save(org_id: str) -> dict:
