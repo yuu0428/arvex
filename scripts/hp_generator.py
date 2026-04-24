@@ -24,7 +24,7 @@ from pathlib import Path
 import httpx
 from pydantic import BaseModel, field_validator
 
-from scripts import blob, claude_cli, codex_image, db, designer_registry
+from scripts import blob, claude_cli, codex_image, db, designer_registry, lp_mockup
 
 
 def _download_logo(url: str, tmp_dir: Path) -> Path | None:
@@ -375,6 +375,7 @@ def _build_user_prompt(
     brand_mark_url: str | None = None,
     logo_path: Path | None = None,
     interview_transcript: list[dict] | None = None,
+    lp_mockup_path: Path | None = None,
 ) -> str:
     # 画像リスト
     source_assets = []
@@ -489,12 +490,27 @@ def _build_user_prompt(
 
     transcript_block = _format_transcript_for_designer(interview_transcript or [])
 
+    mockup_section = "（LP モックアップは生成されていません）"
+    if lp_mockup_path and lp_mockup_path.exists():
+        mockup_section = (
+            f"この団体のために **LP モックアップ画像** を先に Codex に描かせました。\n"
+            f"- ローカルパス: `{lp_mockup_path}`  ← **Read ツールで必ず開いて視認してから MDX を書き始めてください**\n\n"
+            f"扱い方:\n"
+            f"- **視覚ターゲット**として参照する。全体の構図・階層・色温度・書体の雰囲気・セクションの比率を match させる\n"
+            f"- ただし**ピクセル完全再現は目指さない**。Codex が描けない細部（実在写真・実在人物）は Claude が素材 URL に差し替える\n"
+            f"- モックアップの**雰囲気**を実装の北極星に、**具体値**は Theme token + 団体素材で埋める\n"
+            f"- モックアップで示された Hero のコピー・CTA ラベルはヒアリング結果に照らして整合させる（モックアップの方が正確なら優先）"
+        )
+
     return f"""### 団体プロフィール
 名前: {org['name']}
 所属: {org.get('university') or '不明'}
 分類（仮）: {org.get('category') or '未分類'}
 bio 要約: {org.get('bio_summary') or ''}
 Instagram: @{org.get('instagram') or ''}
+
+### LP モックアップ画像（設計の視覚ターゲット）
+{mockup_section}
 
 ### ブランドマーク（ロゴ相当のプロフィール画像）
 {brand_mark_section}
@@ -1101,26 +1117,46 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
     if not designer:
         raise RuntimeError("no designer could be selected")
 
-    with tempfile.TemporaryDirectory(prefix=f"arvex-logo-{slug}-") as tmp_logo_dir:
+    with tempfile.TemporaryDirectory(prefix=f"arvex-logo-{slug}-") as tmp_logo_dir, \
+         tempfile.TemporaryDirectory(prefix=f"arvex-mockup-{slug}-") as tmp_mockup_dir:
         tmp_logo_path = Path(tmp_logo_dir)
+        tmp_mockup_path_dir = Path(tmp_mockup_dir)
         logo_path: Path | None = None
         if brand_mark_url:
             logo_path = _download_logo(brand_mark_url, tmp_logo_path)
             if logo_path:
                 print(f"  brand mark downloaded: {logo_path}", flush=True)
 
+        # LP モックアップ生成: Codex に 1 枚描かせて、Claude の視覚ターゲットにする
+        # ARVEX_LP_MOCKUP=0 で無効化可能。Codex 失敗時は None で先に進む。
+        mockup_image_path: Path | None = None
+        if os.environ.get("ARVEX_LP_MOCKUP", "1") != "0":
+            print(f"[mockup] asking Codex for LP design reference ...", flush=True)
+            mockup_image_path = lp_mockup.prepare_mockup(
+                designer=designer,
+                org=org,
+                transcript=interview_transcript,
+                slug=slug,
+                tmp_dir=tmp_mockup_path_dir,
+            )
+            if mockup_image_path is None:
+                print(f"[mockup] failed or skipped — continuing without visual target", flush=True)
+
         user_prompt = _build_user_prompt(
             org,
             brand_mark_url=brand_mark_url,
             logo_path=logo_path,
             interview_transcript=interview_transcript,
+            lp_mockup_path=mockup_image_path,
         )
         system_prompt = _build_design_system_prompt(designer, components_dir)
 
-        # Read 許可 dir: components + logo tmp + designer の moodboard
+        # Read 許可 dir: components + logo tmp + designer の moodboard + mockup
         allowed: list[str] = [str(components_dir)]
         if logo_path:
             allowed.append(str(tmp_logo_path))
+        if mockup_image_path:
+            allowed.append(str(tmp_mockup_path_dir))
         if designer.moodboard_dir.exists():
             allowed.append(str(designer.moodboard_dir))
             print(f"[generate] moodboard available: {len(designer.moodboard_paths())} images at {designer.moodboard_dir}", flush=True)
