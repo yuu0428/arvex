@@ -1130,6 +1130,7 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
         # LP モックアップ生成: Codex に 1 枚描かせて、Claude の視覚ターゲットにする
         # ARVEX_LP_MOCKUP=0 で無効化可能。Codex 失敗時は None で先に進む。
         mockup_image_path: Path | None = None
+        mockup_url: str | None = None
         if os.environ.get("ARVEX_LP_MOCKUP", "1") != "0":
             print(f"[mockup] asking Codex for LP design reference ...", flush=True)
             mockup_image_path = lp_mockup.prepare_mockup(
@@ -1141,6 +1142,17 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
             )
             if mockup_image_path is None:
                 print(f"[mockup] failed or skipped — continuing without visual target", flush=True)
+            else:
+                # 生成画像を Blob に永続化（temp dir は関数内で削除される）
+                try:
+                    mockup_url = blob.upload(
+                        mockup_image_path,
+                        f"p/{slug}/mockup.png",
+                        force=True,
+                    )
+                    print(f"[mockup] uploaded to Blob → {mockup_url}", flush=True)
+                except Exception as e:
+                    print(f"[mockup] Blob upload failed: {e} — continuing with local path only", flush=True)
 
         user_prompt = _build_user_prompt(
             org,
@@ -1205,6 +1217,7 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
         vercel_url=f"/p/{slug}",
         design_brief=raw,
         interview=json.dumps(interview_transcript, ensure_ascii=False),
+        mockup_url=mockup_url,
         images=json.dumps(images, ensure_ascii=False),
         mdx=mdx,
     )

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS proposals (
     form_url      TEXT,
     design_brief  TEXT,                   -- DesignBrief or Claude の raw output (audit 用)
     interview     TEXT,                   -- JSON: [{round, questions, answers}] main agent x persona のヒアリング履歴
+    mockup_url    TEXT,                   -- Codex 生成 LP モックアップの Blob URL (audit + 送付用)
     images        TEXT,                   -- JSON: [{role, url, prompt, aspect_ratio, alt}]
     html          TEXT,                   -- 完全な HTML 文字列（<!DOCTYPE html>...</html>）
     status        TEXT DEFAULT 'active',  -- active | deleted
