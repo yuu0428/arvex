@@ -24,7 +24,7 @@ from pathlib import Path
 import httpx
 from pydantic import BaseModel, field_validator
 
-from scripts import blob, claude_cli, codex_image, db
+from scripts import blob, claude_cli, codex_image, db, designer_registry
 
 
 def _download_logo(url: str, tmp_dir: Path) -> Path | None:
@@ -665,35 +665,194 @@ def _format_transcript_for_designer(transcript: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-# ========================== Visual feedback loop ==========================
+# ========================== Designer selection ==========================
 
-REVISION_SYSTEM_PROMPT = """あなたはさっき生成した MDX を、**実際のレンダリング結果を見て** デザイン観点から改善します。
+DESIGNER_SELECTION_SYSTEM_PROMPT = """あなたは arvex のデザインディレクターです。
+団体の素材を読んで、5 人のデザイナーの中から**この団体に最適な 1 人**を選びます。
 
-スクショを Read ツールで両方開き (desktop + mobile)、視覚的に破綻している箇所を見つけ、
-必要なら MDX を全面書き直してください。改善の典型的な観点:
+各デザイナーは固有の思想 / 書体 / 色の嗜好 / モーション癖を持つ。generic に無難なデザイナーは居ない。
 
-- 余白のリズム（セクション間・要素間・ブロック内が不均衡になってないか）
-- 書体のコントラスト（display vs body の size jump は 3x 以上を推奨）
-- 色のバランス（dominant + accent の比率、timid な均質パレットになってないか）
-- grid / flex のレイアウト破綻（overflow / 折り返しが不自然な箇所）
-- 画像とテキストの competing focal point（hero で画像が強すぎてコピーが埋もれる等）
-- mobile で desktop レイアウトが崩れる箇所
-- 情報量が多すぎる / 少なすぎるセクション（長すぎる段落、薄すぎる grid）
+### デザイナー候補
 
-書き直しの制約:
-- **画像の src URL はそのまま維持**（既に解決済みの URL が入っているので触らない）
-- `{{FORM_URL}}` プレースホルダはそのまま残す
-- Theme トークンの書き方、固有情報の整合、MDX 技術制約（`<p>` ネスト禁止、JSX 属性など）は v1 と同じルール
-- 本当に書き直す必要がなければ **v1 をそのまま返してよい**（ただしその判断理由を最初に明示）
+{designer_summaries}
 
-### 出力形式
+### 判断基準
 
-最初に**短い critique**（箇条書きで破綻箇所 or 「問題なし」の判断）を書き、その後:
+1. 団体の**性格**（手作り / 編集 / 整然 / 抗議 / 視覚主義）とデザイナーの思想が合っているか
+2. 団体の**素材の質**（写真が強い / 言葉が強い / 数字が強い / 活動の幅が広い）とデザイナーの伝達手段が合っているか
+3. 団体の**読者**がデザイナーの表現で動くか
+
+### 出力形式（前置き後書きなし）
+
+<!-- CHOICE:BEGIN -->
+selected: <デザイナーの name スラグ>
+reason: <1-2 文で、なぜこのデザイナーか>
+<!-- CHOICE:END -->
+"""
+
+
+def _build_designer_summaries(designers: list[designer_registry.Designer]) -> str:
+    lines = []
+    for d in designers:
+        lines.append(
+            f"## {d.name}\n"
+            f"- 通称: {d.display_name}\n"
+            f"- 性格: {d.description}\n"
+            f"- 愛用書体: {', '.join(d.signature_fonts)}\n"
+            f"- 色方針: {d.palette_rules}\n"
+            f"- モーション: {d.motion_profile}"
+        )
+    return "\n\n".join(lines)
+
+
+def _select_designer(
+    org: dict, notable_facts: dict, transcript: list[dict]
+) -> designer_registry.Designer | None:
+    designers = designer_registry.load_designers()
+    if not designers:
+        print("[design] no designers registered", flush=True)
+        return None
+
+    summary_parts = [f"団体名: {org['name']}"]
+    if org.get("bio_summary"):
+        summary_parts.append(f"bio: {org['bio_summary'][:600]}")
+    summary_parts.append("notable facts:\n" + _format_notable_facts_for_summary(notable_facts))
+    transcript_condensed = _format_transcript_for_designer(transcript)[:3000]
+    summary_parts.append(f"ヒアリング transcript:\n{transcript_condensed}")
+    user_prompt = "\n\n".join(summary_parts) + "\n\nこの団体に最適なデザイナーを 1 人選んでください。"
+
+    sys_prompt = DESIGNER_SELECTION_SYSTEM_PROMPT.format(
+        designer_summaries=_build_designer_summaries(designers)
+    )
+
+    try:
+        raw = claude_cli.call_text(
+            system_prompt=sys_prompt,
+            user_prompt=user_prompt,
+            model=MODEL,
+        )
+    except Exception as e:
+        print(f"[design] designer selection failed: {e} — fallback to first designer", flush=True)
+        return designers[0]
+
+    choice = claude_cli.extract_block(raw, "CHOICE")
+    if not choice:
+        print(f"[design] no CHOICE block — fallback to first designer. raw: {raw[:300]}", flush=True)
+        return designers[0]
+    m = re.search(r"selected:\s*([A-Za-z0-9_-]+)", choice)
+    if not m:
+        return designers[0]
+    slug = m.group(1).strip()
+    for d in designers:
+        if d.name == slug:
+            reason_m = re.search(r"reason:\s*(.+)", choice, re.DOTALL)
+            reason = (reason_m.group(1).strip() if reason_m else "")[:200]
+            print(f"[design] selected designer: {d.name} ({d.display_name}) — {reason}", flush=True)
+            return d
+    print(f"[design] unknown designer slug '{slug}' — fallback to {designers[0].name}", flush=True)
+    return designers[0]
+
+
+def _build_design_system_prompt(
+    designer: designer_registry.Designer, components_dir: Path
+) -> str:
+    arvex_tech = SYSTEM_PROMPT.format(components_dir=str(components_dir))
+    skill_prelude = _load_frontend_design_prelude()
+
+    designer_section = (
+        f"# あなたのデザイナーとしての人格\n\n"
+        f"{designer.persona_markdown}\n\n"
+        f"このペルソナに**一貫して**コミット。中間的な無難なデザインは禁止。\n"
+        f"moodboard 画像があれば Read で開いて、あなたが好むビジュアル言語を再確認してから設計を始める。"
+    )
+
+    parts: list[str] = []
+    if skill_prelude:
+        parts.append(f"# Foundation: frontend-design skill\n\n{skill_prelude}")
+    parts.append(designer_section)
+    parts.append(f"# arvex 実装規約 (技術的制約、デザイン判断の後で適用)\n\n{arvex_tech}")
+    return "\n\n---\n\n".join(parts)
+
+
+# ========================== Reader review + revise loop ==========================
+
+READER_REVIEW_SYSTEM_PROMPT_TEMPLATE = """あなたは学生団体「{team_name}」の中の人、もしくはその団体の意思決定者です。
+Instagram の DM で「arvex っていう所から、HP の叩き台が送られてきた」と言われて、スマホでリンクを開きました。
+あなたはデザインの専門家ではありません。30 秒で判断します。
+
+この HP のスクショ (desktop + mobile、Read で必ず両方見る) を見て、下記のチェックリストに答えてください。
+
+### チェックリスト（10 項目、IG DM 経由の提案 HP として成立するか）
+
+1. 3 秒で「何のページか」わかる？
+2. 「自分たちの団体のことだ」と認識できる？（写真・言葉に覚えがあるか）
+3. 「これは arvex から送られた提案」だと明示的に示されている？
+4. モバイルで読みやすい？（文字が小さすぎない、行間が狭すぎない）
+5. プロっぽく見える？（雑・アマチュア感がない）
+6. 嘘・誇張・捏造っぽさがない？（自分たちがやってないこと、言ってない言葉が無い）
+7. 最後まで読みたくなる？（最初の画面で切らない）
+8. 次にどう進めば良いか（返信する / フォーム / DM）が見える？
+9. 壊れてないか？（overflow、重なり、画像欠け、文字切れ）
+10. 同世代の他団体の HP より「ちょっといい」と感じる？
+
+### 出力形式（前置き後書きなし）
+
+<!-- REVIEW:BEGIN -->
+## 評価
+1. [pass/fail] 短いコメント
+2. [pass/fail] 短いコメント
+3. [pass/fail] 短いコメント
+4. [pass/fail] 短いコメント
+5. [pass/fail] 短いコメント
+6. [pass/fail] 短いコメント
+7. [pass/fail] 短いコメント
+8. [pass/fail] 短いコメント
+9. [pass/fail] 短いコメント
+10. [pass/fail] 短いコメント
+
+## 総合判定
+VERDICT: PASS or NEEDS_REVISION
+(7 個以上 pass なら PASS、それ以下は NEEDS_REVISION)
+
+## デザイナーへの具体的フィードバック（NEEDS_REVISION の場合のみ。修正の指示を具体的に）
+- ...
+<!-- REVIEW:END -->
+"""
+
+
+REVISION_WITH_FEEDBACK_USER_TEMPLATE = """### あなたが前回作った MDX
+
+```mdx
+{mdx_prev}
+```
+
+### 読者からのフィードバック
+
+```
+{review}
+```
+
+### レンダリング結果のスクショ（Read で確認）
+{shots_block}
+
+読者のフィードバックに従って MDX を修正してください。
+
+制約:
+- あなたのペルソナは**維持**する（中間的な無難さに寄らない）
+- 指摘された問題だけを直し、問題ない箇所は触らない
+- 画像 URL はそのまま維持
+- `{{FORM_URL}}` プレースホルダはそのまま
+- MDX 技術制約 (p ネスト禁止、Theme JSON、JSX 属性制限 等) は維持
+
+出力は MDX ブロックだけ:
 
 <!-- MDX:BEGIN -->
-...改訂版（or v1 そのまま）の MDX 全文...
+...修正後 MDX 全文...
 <!-- MDX:END -->
 """
+
+
+MAX_REVIEW_ITERATIONS = 3
 
 
 def _screenshot_proposal(slug: str, out_dir: Path) -> list[Path]:
@@ -717,90 +876,152 @@ def _screenshot_proposal(slug: str, out_dir: Path) -> list[Path]:
     return paths
 
 
-def _revise_mdx_with_visual_feedback(
+def _run_reader_review(
     *,
-    mdx_v1: str,
     slug: str,
     org: dict,
+    shots_dir: Path,
+) -> tuple[str, bool]:
+    """IG DM 読者視点でレビュー。戻り値: (review_text, is_pass)。"""
+    shot_paths = sorted(shots_dir.glob("*.png"))
+    shots_block = "\n".join(f"- `{p}`" for p in shot_paths)
+    sys_prompt = READER_REVIEW_SYSTEM_PROMPT_TEMPLATE.format(team_name=org["name"])
+    user_prompt = (
+        f"スクショ:\n{shots_block}\n\n"
+        f"両方とも Read で開いてから、チェックリストで判定してください。"
+    )
+    try:
+        raw = claude_cli.call_text(
+            system_prompt=sys_prompt,
+            user_prompt=user_prompt,
+            model=MODEL,
+            tools="Read",
+            allowed_dirs=[str(shots_dir)],
+        )
+    except Exception as e:
+        print(f"[reader-review] call failed: {e}", flush=True)
+        return "", True  # fail-open: pass to avoid infinite retry
+    review = claude_cli.extract_block(raw, "REVIEW") or raw.strip()
+    is_pass = bool(re.search(r"VERDICT:\s*PASS\b", review))
+    return review, is_pass
+
+
+def _revise_with_designer(
+    *,
+    designer: designer_registry.Designer,
+    mdx_prev: str,
+    review: str,
     components_dir: Path,
-    logo_path: Path | None,
+    shots_dir: Path,
     image_urls: set[str],
     form_url: str | None,
 ) -> str | None:
-    """スクショを Claude vision に見せて MDX を改善。成功時 MDX v2、失敗/スキップ時 None。"""
-    if not REVIEW_ENABLED:
+    """designer にレビュー feedback を渡して MDX を改訂。成功時改訂 MDX、失敗時 None。"""
+    sys_prompt = _build_design_system_prompt(designer, components_dir)
+    shots_block = "\n".join(f"- `{p}`" for p in sorted(shots_dir.glob("*.png")))
+    mdx_for_review = mdx_prev
+    if form_url and form_url in mdx_for_review:
+        mdx_for_review = mdx_for_review.replace(form_url, "{{FORM_URL}}")
+    user_prompt = REVISION_WITH_FEEDBACK_USER_TEMPLATE.format(
+        mdx_prev=mdx_for_review,
+        review=review,
+        shots_block=shots_block,
+    )
+    allowed: list[str] = [str(components_dir), str(shots_dir)]
+    if designer.moodboard_dir.exists():
+        allowed.append(str(designer.moodboard_dir))
+    try:
+        raw = claude_cli.call_text(
+            system_prompt=sys_prompt,
+            user_prompt=user_prompt,
+            model=MODEL,
+            tools="Read",
+            allowed_dirs=allowed,
+        )
+    except Exception as e:
+        print(f"[revise] call failed: {e}", flush=True)
         return None
-    # Dev server reachability
+    revised = claude_cli.extract_block(raw, "MDX")
+    if not revised:
+        return None
+    check_mdx = revised.replace("{{FORM_URL}}", form_url) if form_url else revised
+    try:
+        validate_mdx(check_mdx, image_urls)
+    except ValueError as e:
+        print(f"[revise] revised MDX invalid: {e}", flush=True)
+        return None
+    return revised
+
+
+def _review_and_revise_loop(
+    *,
+    designer: designer_registry.Designer,
+    slug: str,
+    org: dict,
+    mdx_current: str,
+    components_dir: Path,
+    image_urls: set[str],
+    form_url: str | None,
+) -> tuple[str, list[dict]]:
+    """読者レビュー → 修正を最大 MAX_REVIEW_ITERATIONS 回ループ。
+    戻り値: (最終 MDX, review の履歴)。PASS したら即 return。"""
+    history: list[dict] = []
+    if not REVIEW_ENABLED:
+        return mdx_current, history
     try:
         httpx.get(f"{DEV_SERVER_URL}/p/{slug}", timeout=5)
     except Exception as e:
-        print(f"[review] dev server unreachable at {DEV_SERVER_URL}: {e} — skipping visual review", flush=True)
-        return None
+        print(f"[review] dev server unreachable: {e} — skipping loop", flush=True)
+        return mdx_current, history
 
-    with tempfile.TemporaryDirectory(prefix=f"arvex-shots-{slug}-") as tmp_shots:
-        shots_dir = Path(tmp_shots)
-        try:
-            print(f"[review] taking screenshots (desktop + mobile) ...", flush=True)
-            shot_paths = _screenshot_proposal(slug, shots_dir)
-        except Exception as e:
-            print(f"[review] screenshot failed: {e} — skipping", flush=True)
-            return None
+    for iteration in range(1, MAX_REVIEW_ITERATIONS + 1):
+        with tempfile.TemporaryDirectory(prefix=f"arvex-shots-{slug}-{iteration}-") as tmp_shots:
+            shots_dir = Path(tmp_shots)
+            try:
+                print(f"[review] iteration {iteration}: taking screenshots", flush=True)
+                _screenshot_proposal(slug, shots_dir)
+            except Exception as e:
+                print(f"[review] screenshot failed: {e} — ending loop", flush=True)
+                break
 
-        shots_block = "\n".join(f"- `{p}` ({p.stem})" for p in shot_paths)
-        user_prompt = f"""### 団体（変更不要の参考情報）
-名前: {org['name']}
-Instagram: @{org.get('instagram') or ''}
+            print(f"[review] iteration {iteration}: running reader review", flush=True)
+            review, is_pass = _run_reader_review(slug=slug, org=org, shots_dir=shots_dir)
+            history.append({
+                "iteration": iteration,
+                "review": review,
+                "verdict": "PASS" if is_pass else "NEEDS_REVISION",
+            })
+            if is_pass:
+                print(f"[review] iteration {iteration}: PASS — ending loop", flush=True)
+                break
+            if iteration >= MAX_REVIEW_ITERATIONS:
+                print(f"[review] iteration {iteration}: still NEEDS_REVISION at max — accepting current", flush=True)
+                break
 
-### レンダリング結果のスクショ（Read で両方必ず開いて見る）
-{shots_block}
-
-### 現在の MDX v1
-
-```mdx
-{mdx_v1}
-```
-
-スクショを見て、デザイン観点から改善してください。改善点を列挙した後、改訂版 MDX を出してください。
-問題なければ v1 をそのまま返しても構いません（その判断を明示）。
-"""
-        skill_prelude = _load_frontend_design_prelude()
-        system_parts: list[str] = []
-        if skill_prelude:
-            system_parts.append(f"# Foundation: frontend-design skill\n\n{skill_prelude}")
-        system_parts.append(REVISION_SYSTEM_PROMPT)
-        system_prompt = "\n\n---\n\n".join(system_parts)
-
-        allowed: list[str] = [str(components_dir), str(shots_dir)]
-        if logo_path:
-            allowed.append(str(logo_path.parent))
-
-        print(f"[review] visual feedback inference ...", flush=True)
-        try:
-            raw = claude_cli.call_text(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                model=MODEL,
-                tools="Read",
-                allowed_dirs=allowed,
+            print(f"[review] iteration {iteration}: NEEDS_REVISION — revising with designer {designer.name}", flush=True)
+            revised = _revise_with_designer(
+                designer=designer,
+                mdx_prev=mdx_current,
+                review=review,
+                components_dir=components_dir,
+                shots_dir=shots_dir,
+                image_urls=image_urls,
+                form_url=form_url,
             )
-        except Exception as e:
-            print(f"[review] Claude call failed: {e} — keeping v1", flush=True)
-            return None
+            if revised is None:
+                print(f"[review] revise failed — keeping current MDX and ending loop", flush=True)
+                break
+            # form_url 置換
+            final = revised.replace("{{FORM_URL}}", form_url) if form_url else revised
+            # DB に反映して次 iteration で dev server が新しい MDX を読む
+            db.execute(
+                "UPDATE proposals SET mdx = ? WHERE slug = ?",
+                [final, slug],
+            )
+            mdx_current = final
+            print(f"[review] iteration {iteration}: revised MDX saved, continuing loop", flush=True)
 
-        revised = claude_cli.extract_block(raw, "MDX")
-        if not revised:
-            print(f"[review] no MDX block in response — keeping v1", flush=True)
-            return None
-        # form_url は revised MDX 内で `{{FORM_URL}}` のまま残っているはず。validate 用に同じ置換をする
-        check_mdx = revised
-        if form_url:
-            check_mdx = check_mdx.replace("{{FORM_URL}}", form_url)
-        try:
-            validate_mdx(check_mdx, image_urls)
-        except ValueError as e:
-            print(f"[review] revised MDX failed validation: {e} — keeping v1", flush=True)
-            return None
-        return revised
+    return mdx_current, history
 
 
 # ========================== Main orchestration ==========================
@@ -830,10 +1051,18 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
     )
 
     # ヒアリング: main agent ↔ team persona sub-agent の Q&A ループ。
-    # HP 設計の最上流の input として transcript を生成する。
     print(f"[interview] starting main ↔ persona loop (max {INTERVIEW_MAX_ROUNDS} rounds) ...", flush=True)
     interview_transcript = _run_interview(org)
     print(f"[interview] completed: {len(interview_transcript)} round(s)", flush=True)
+
+    # デザイナー選択: 5 人のペルソナから team に最適な 1 人
+    try:
+        notable_facts_dict = json.loads(org.get("notable_facts") or "{}")
+    except Exception:
+        notable_facts_dict = {}
+    designer = _select_designer(org, notable_facts_dict, interview_transcript)
+    if not designer:
+        raise RuntimeError("no designer could be selected")
 
     with tempfile.TemporaryDirectory(prefix=f"arvex-logo-{slug}-") as tmp_logo_dir:
         tmp_logo_path = Path(tmp_logo_dir)
@@ -849,26 +1078,17 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
             logo_path=logo_path,
             interview_transcript=interview_transcript,
         )
-        arvex_system = SYSTEM_PROMPT.format(components_dir=str(components_dir))
-        skill_prelude = _load_frontend_design_prelude()
-        if skill_prelude:
-            system_prompt = (
-                "# Foundation: frontend-design skill\n\n"
-                f"{skill_prelude}\n\n"
-                "---\n\n"
-                "# arvex-specific rules (これが優先。上の foundation は設計規律として参照する)\n\n"
-                f"{arvex_system}"
-            )
-            print(f"[generate] frontend-design skill prelude loaded ({len(skill_prelude)} chars)", flush=True)
-        else:
-            system_prompt = arvex_system
-            print(f"[generate] frontend-design skill not found, using arvex prompt only", flush=True)
+        system_prompt = _build_design_system_prompt(designer, components_dir)
 
+        # Read 許可 dir: components + logo tmp + designer の moodboard
         allowed: list[str] = [str(components_dir)]
         if logo_path:
             allowed.append(str(tmp_logo_path))
+        if designer.moodboard_dir.exists():
+            allowed.append(str(designer.moodboard_dir))
+            print(f"[generate] moodboard available: {len(designer.moodboard_paths())} images at {designer.moodboard_dir}", flush=True)
 
-        print(f"[generate] single-turn inference ...", flush=True)
+        print(f"[generate] designer={designer.name} — inference ...", flush=True)
         raw = claude_cli.call_text(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
@@ -916,32 +1136,37 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
         mdx=mdx,
     )
     db.update_org(org_id, status="proposal_sent")
-    print(f"\nProposal v1 saved: {proposal_id}", flush=True)
+    print(f"\nProposal v1 saved: {proposal_id} (designer={designer.name})", flush=True)
     print(f"  preview: /p/{slug}", flush=True)
 
-    # Visual feedback loop: レンダリング → スクショ → Claude vision で design review → MDX v2
-    # form_url を最後に適用する流れを v2 でも同じにするため、form_url 適用前の mdx_for_review を使う
-    mdx_for_review = mdx
-    if form_url:
-        # revision 側では {{FORM_URL}} を維持させたいので、一旦戻す表記
-        mdx_for_review = mdx.replace(form_url, "{{FORM_URL}}") if form_url in mdx else mdx
-    revised = _revise_mdx_with_visual_feedback(
-        mdx_v1=mdx_for_review,
+    # Reader review + revise loop: IG DM 読者視点の審査 → 修正を最大 MAX_REVIEW_ITERATIONS 回
+    final_mdx, review_history = _review_and_revise_loop(
+        designer=designer,
         slug=slug,
         org=org,
+        mdx_current=mdx,
         components_dir=components_dir,
-        logo_path=None,  # logo_path の tmp dir は上の with ブロックで消えているので渡さない
         image_urls=image_urls,
         form_url=form_url,
     )
-    if revised is not None:
-        final_mdx = revised.replace("{{FORM_URL}}", form_url) if form_url else revised
-        db.update_proposal(
-            proposal_id,
-            design_brief=raw + "\n\n---\n\n[VISUAL_REVIEW_REVISED_MDX]\n\n" + revised,
-            mdx=final_mdx,
+
+    # 最終結果と history を DB に保存
+    if review_history:
+        brief_with_review = (
+            raw
+            + f"\n\n---\n\n[DESIGNER={designer.name}]\n\n[REVIEW_HISTORY]\n\n"
+            + json.dumps(review_history, ensure_ascii=False, indent=2)
         )
-        print(f"[review] revised MDX saved (v2)", flush=True)
+    else:
+        brief_with_review = raw + f"\n\n[DESIGNER={designer.name}]"
+    db.update_proposal(
+        proposal_id,
+        design_brief=brief_with_review,
+        mdx=final_mdx,
+    )
+    if review_history:
+        verdicts = [h["verdict"] for h in review_history]
+        print(f"[review] completed {len(review_history)} iteration(s). verdicts: {verdicts}", flush=True)
     return proposal_id
 
 

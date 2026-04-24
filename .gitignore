@@ -29,3 +29,9 @@ web/out/
 # OS
 .DS_Store
 .claude/settings.local.json
+
+# Designer moodboard cache (rebuild via `python -m scripts.collect_moodboards`)
+scripts/designers/*/moodboard/
+
+# Local logo drafts
+logo/

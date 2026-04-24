@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.daiwa-pc.co.jp/",
+    "why": "大和プレス工業の企業サイト。厳格グリッドと無装飾の情報階層、aside の kicker 運用が教科書的に美しい"
+  },
+  {
+    "url": "https://www.lars-mueller-publishers.com/",
+    "why": "スイス派の本丸。Müller-Brockmann を出版し続ける版元のサイト自体がグリッドと sans で組まれている"
+  },
+  {
+    "url": "https://kottke.org/",
+    "why": "1998 年から続く独立 blog。余白・本文幅・水平線 1 本の章区切りだけで情報が立つ理想系"
+  },
+  {
+    "url": "https://www.worksthatwork.com/",
+    "why": "Typotheque 系の独立マガジン。12 カラムの実直な組版と tabular-nums の号数表記が signature"
+  },
+  {
+    "url": "https://ia.net/",
+    "why": "Information Architects。sans + 左寄せ巨大 display + 最小 accent の構成を何年も貫徹している"
+  },
+  {
+    "url": "https://www.readymag.com/",
+    "why": "editorial ツールでありながら自サイトは黒白 + 1 accent、hairline、UPPERCASE kicker で構築されている"
+  },
+  {
+    "url": "https://manystuff.org/",
+    "why": "グラフィックデザイン系 index サイト。罫線と余白だけで膨大な情報を捌く禁欲的な設計"
+  }
+]
