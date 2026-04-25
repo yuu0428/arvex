@@ -47,6 +47,11 @@ PROPOSAL_TTL_DAYS = 10
 REVIEW_ENABLED = os.environ.get("ARVEX_VISUAL_REVIEW", "1") != "0"
 DEV_SERVER_URL = os.environ.get("ARVEX_DEV_SERVER_URL", "http://localhost:3000").rstrip("/")
 
+# Codex の画像生成 (LP mockup + 補完画像の generate) は usage limit / コスト依存があるので
+# デフォルト OFF。素材写真の reuse のみで HP を構成する。
+# ARVEX_ENABLE_IMAGE_GEN=1 で有効化（Codex クレジット復活時など）。
+ENABLE_IMAGE_GEN = os.environ.get("ARVEX_ENABLE_IMAGE_GEN", "0") == "1"
+
 # 公式 frontend-design skill（Anthropic, 550k+ installs）を前置して使う。
 # 「generic AI aesthetics を避ける」「bold aesthetic direction を選ぶ」の設計規律を
 # 公式に任せ、arvex の SYSTEM_PROMPT は「団体理解」「notable_facts」「MDX 技術制約」
@@ -234,7 +239,10 @@ MDX は React + Tailwind がそのまま動く環境です。組み方は 3 段�
   - より抽象度の高い書き方に置き換える（例: 「[取材 01]さんとの対話回」ではなく「NPO 代表との対話回」or その記述自体を削除）
   - プレースホルダとして目立って残すくらいなら、削る / 抽象化する方が良い
 - 性格付けや役割を書く時は、団体自身が使っている語を使う
-- image_specs は reuse を優先。提供された URL から選ぶ。不足分のみ generate
+- **image_specs は `source: "reuse"` のみ使う。`generate` は禁止**。
+  画像は提供された素材 URL からだけ選ぶ。素材に合う画像が無い場面は、
+  その画像を使わない設計に変える（タイポグラフィ・色面・余白・SVG 風アイコン等で構成）。
+  Codex 画像生成は現在無効化されており、`generate` 指定すると pipeline 全体が失敗する
 - 先頭に `<Theme ... />` を 1 回（name / colors / typography / rounded / spacing / motionCharacter / bodyTypography / bodyColor / bgColor を渡す）
 - **`colors` / `typography` / `rounded` / `spacing` は必ず JSON 文字列としてシングルクォートで渡す**。
   MDX ランタイムコンパイラはネストされたオブジェクトリテラルを属性値として正しく渡せないため、JSX 式ではなく JSON 文字列にする。
@@ -332,6 +340,12 @@ def _resolve_one(spec: ImageSpec, slug: str, tmp_dir: Path) -> dict:
             "aspect_ratio": spec.aspect_ratio,
             "alt": spec.alt,
         }
+    if not ENABLE_IMAGE_GEN:
+        raise ValueError(
+            f"IMAGE_SPECS で role={spec.role!r} が source='generate' を指定しているが、"
+            f"画像生成は無効化されている（ARVEX_ENABLE_IMAGE_GEN=0）。"
+            f"team の素材 URL からの reuse のみ使うよう MDX を組み直してください。"
+        )
     print(f"  [img {spec.role}] generate via Codex", flush=True)
     local = tmp_dir / spec.filename
     codex_image.generate(spec.prompt or "", spec.aspect_ratio, local)
@@ -1127,11 +1141,11 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
             if logo_path:
                 print(f"  brand mark downloaded: {logo_path}", flush=True)
 
-        # LP モックアップ生成: Codex に 1 枚描かせて、Claude の視覚ターゲットにする
-        # ARVEX_LP_MOCKUP=0 で無効化可能。Codex 失敗時は None で先に進む。
+        # LP モックアップ生成: Codex で AI 画像生成。`ENABLE_IMAGE_GEN` が True の時のみ実行。
+        # 既定は False (Codex usage limit / コスト懸念) で、素材写真だけで HP を構成する。
         mockup_image_path: Path | None = None
         mockup_url: str | None = None
-        if os.environ.get("ARVEX_LP_MOCKUP", "1") != "0":
+        if ENABLE_IMAGE_GEN:
             print(f"[mockup] asking Codex for LP design reference ...", flush=True)
             mockup_image_path = lp_mockup.prepare_mockup(
                 designer=designer,
@@ -1143,7 +1157,6 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
             if mockup_image_path is None:
                 print(f"[mockup] failed or skipped — continuing without visual target", flush=True)
             else:
-                # 生成画像を Blob に永続化（temp dir は関数内で削除される）
                 try:
                     mockup_url = blob.upload(
                         mockup_image_path,
@@ -1153,6 +1166,8 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
                     print(f"[mockup] uploaded to Blob → {mockup_url}", flush=True)
                 except Exception as e:
                     print(f"[mockup] Blob upload failed: {e} — continuing with local path only", flush=True)
+        else:
+            print(f"[mockup] image generation disabled (set ARVEX_ENABLE_IMAGE_GEN=1 to enable)", flush=True)
 
         user_prompt = _build_user_prompt(
             org,
