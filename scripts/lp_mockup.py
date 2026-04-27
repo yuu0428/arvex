@@ -22,6 +22,49 @@ from scripts import codex_image, designer_registry
 
 # ========================== Prompt template ==========================
 
+# Codex の AI image generation を明示的に呼ぶための prompt。
+# 「rendered design illustration」「AI-generated」「photographic mockup」等の signal で
+# Codex が Python UI コードを書こうとせず、画像生成 API に直行するようにする。
+CODEX_MOCKUP_TEMPLATE_SHORT = """\
+Use AI image generation (OpenAI image API) to produce a single rendered design
+mockup illustration. This is a photographic, designer-style PNG output —
+not a Python-drawn diagram, not a PIL/Pillow rendering, not an HTML
+screenshot. Generate the image with the image generation tool.
+
+Subject: a vertical 9:16 mobile landing page design mockup for a real Japanese
+student organization. Treat it as a high-fidelity Behance/Dribbble case-study
+preview rendered as one continuous tall artboard.
+
+Team displayed on the page: {team_name}
+Hero text (render this exact Japanese in the page, do not translate):
+  "{hero_copy}"
+Primary CTA button label (exact Japanese):
+  "{main_cta}"
+3-4 small activity tiles, each labelled with this Japanese (verbatim):
+{activities_block}
+
+Visual direction (designer = {designer_name}):
+- Aesthetic note: {designer_oneliner}
+- Palette: {palette_rules}
+- Typography family to depict: {signature_fonts_list}
+
+Composition top to bottom on the same 9:16 artboard:
+1. thin top bar with the team wordmark
+2. hero block with the Japanese hero text + a clear CTA button labelled with the Japanese above
+3. row(s) of 3-4 small activity tiles — show the Japanese tile labels, no fake stock-photo faces
+4. CTA band restating the button
+5. quiet footer line
+
+Critical rules:
+- All Japanese text must be readable and rendered correctly (no garbled glyphs, no Chinese hanzi substitution).
+- No phone bezel, no browser chrome, no laptop frame — it is the LP itself.
+- No purple-gradient generic SaaS aesthetic; obey the palette above.
+- No fake testimonials, no English placeholder text, no lorem ipsum.
+
+Save the rendered PNG (the AI-generated image) to: {output_path}
+"""
+
+
 CODEX_MOCKUP_TEMPLATE = """\
 You are a senior art director producing a high-fidelity mobile landing-page
 mockup for a real Japanese student organization. Target fidelity: top-ranked
@@ -216,7 +259,8 @@ EXTRA GUIDANCE FOR poster-designer:
 def _build_moodboard_block(paths: list[Path]) -> str:
     if not paths:
         return "  (no moodboard provided — rely on persona description only)"
-    return "\n".join(f"  - Open: {p.resolve()}" for p in paths[:6])
+    # Codex は画像を多く開かせると処理が重くなるので 3 枚まで
+    return "\n".join(f"  - Open: {p.resolve()}" for p in paths[:3])
 
 
 def _build_fonts_list(fonts: list[str]) -> str:
@@ -234,15 +278,10 @@ def build_codex_prompt(
 ) -> str:
     """Codex に渡す LP モックアップ画像生成プロンプトを構築する。
 
-    Args:
-        designer: 選定済みデザイナーのペルソナ情報
-        team_ctx: 団体コンテキスト dict（team_name / team_tagline / audience /
-            unique_strength / hero_copy / activities / main_cta 等）
-        moodboard_paths: designer の moodboard 画像の絶対パス（Codex に Read させる）
-
-    Returns:
-        Codex `exec` に渡す画像生成プロンプト文字列。末尾の {output_path} は
-        `generate_mockup_image` 側で置換される。
+    Codex の image-gen mode は長文プロンプトで stalling/timeout する傾向があるため、
+    既定では SHORT テンプレートを使う。必須要素（team / hero / activities / aesthetic）
+    だけ凝縮し、moodboard の Read 指示等は含めない。
+    moodboard_paths は将来用に signature 残してあるが現在は未使用。
     """
     activities = team_ctx.get("activities", []) or []
     activities_lines: list[str] = []
@@ -257,24 +296,18 @@ def build_codex_prompt(
             activities_lines.append(f"  {i}. {desc}")
     activities_block = "\n".join(activities_lines) if activities_lines else "  (no activities provided)"
 
-    designer_specific_overrides = _DESIGNER_OVERRIDES.get(designer.name, "")
+    # designer 一行要約: SKILL.md 全文ではなく description だけ渡す
+    designer_oneliner = (designer.description or "").strip().split("\n", 1)[0][:200]
 
-    return CODEX_MOCKUP_TEMPLATE.format(
+    return CODEX_MOCKUP_TEMPLATE_SHORT.format(
         team_name=team_ctx.get("team_name", ""),
-        team_tagline=team_ctx.get("team_tagline", ""),
-        audience=team_ctx.get("audience", ""),
-        unique_strength=team_ctx.get("unique_strength", ""),
         hero_copy=team_ctx.get("hero_copy", ""),
         main_cta=team_ctx.get("main_cta", "仲間になる"),
         activities_block=activities_block,
-        designer_display_name=designer.display_name or designer.name,
         designer_name=designer.name,
-        designer_persona_body=(designer.persona_markdown or "").strip(),
-        signature_fonts_list=_build_fonts_list(designer.signature_fonts or []),
+        designer_oneliner=designer_oneliner,
+        signature_fonts_list=", ".join(designer.signature_fonts or []) or "(persona default)",
         palette_rules=designer.palette_rules or "",
-        motion_profile=designer.motion_profile or "",
-        designer_specific_overrides=designer_specific_overrides,
-        moodboard_block=_build_moodboard_block(moodboard_paths or []),
         output_path="{output_path}",  # runtime substitution
     )
 
@@ -284,7 +317,7 @@ def build_codex_prompt(
 def generate_mockup_image(
     prompt: str,
     output_path: Path,
-    timeout: int = 600,
+    timeout: int = 900,
 ) -> Path:
     """Codex に 9:16 の LP モックアップ画像を 1 枚生成させる。
 
@@ -448,10 +481,11 @@ def prepare_mockup(
     # team_name
     team_name = org.get("name", "") or ""
 
-    # team_tagline: 最初の回答 or bio 先頭 1 文
-    tagline = _first_answer_from_transcript(transcript)
-    if not tagline:
-        tagline = _first_sentence(org.get("bio_summary") or "")
+    # team_tagline: 最初の回答 or bio 先頭 1 文。長文回答は切り詰めてプロンプト膨張を防ぐ
+    tagline_raw = _first_answer_from_transcript(transcript)
+    if not tagline_raw:
+        tagline_raw = org.get("bio_summary") or ""
+    tagline = _first_sentence(tagline_raw)[:140]
 
     # DONE ブロックから audience / 強み を拾う
     done = _done_content(transcript)
@@ -486,8 +520,9 @@ def prepare_mockup(
         "avoid_images": _avoid_images_from_designer(designer),
     }
 
-    moodboard = designer.moodboard_paths() if hasattr(designer, "moodboard_paths") else []
-    prompt = build_codex_prompt(designer, team_ctx, moodboard_paths=moodboard)
+    # 注意: moodboard パスを Codex に渡すと、`Open: <path>` 指示をファイル Read と解釈して
+    # timeout するので、ここでは空リストを渡す（persona 記述で aesthetic を伝えるだけで十分）
+    prompt = build_codex_prompt(designer, team_ctx, moodboard_paths=[])
 
     output_path = tmp_dir / f"{slug}-lp-mockup.png"
     print(f"[lp_mockup] generating mockup for slug={slug} designer={designer.name} → {output_path}", flush=True)
