@@ -209,6 +209,15 @@ HP は**リンクの doorway** — note / IG / フォーム等、実コンテン
 
 この骨格は**雑誌でも作品でもない Web サイト**として機能するための土台。装飾・タイポグラフィ・色・モーションでデザイナーごとに大きく違う見た目になってよいが、**骨格は共通**。
 
+**PC viewport 前提（重要）**:
+
+訪問者は **PC (1440px 前後) と モバイル (390px 前後) の両方**で見る。**両方で「Web サイト」として機能する**ように組む:
+
+- PC: max-width は最低 `max-w-7xl` (1280px) 以上。`max-w-6xl` (1152px) は狭すぎて 1440px viewport で左右に大量の余白ができる。Hero やコンテンツ密度が高い section は思い切って `max-w-7xl` or `w-full` (画面端まで)。
+- PC では**横並びレイアウトを使い切る** (2-3 カラム、grid `lg:grid-cols-2` `lg:grid-cols-3`、Hero に画像を右寄せ等)。モバイル (`grid-cols-1`) と切り替える。
+- モバイル: 縦 1 カラム、文字サイズ大きめ、CTA が above-the-fold。
+- 「mobile-first で書いた縦長ページを PC でそのまま見せる」のは NG。PC で見たら**情報密度・横空間活用が PC らしくなっている**こと。
+
 ### 絶対禁止事項（arvex の不可視化）
 
 HP は**団体自身の HP**として純粋に作る。arvex は舞台裏（IG DM の文面で別途伝える）。
@@ -244,14 +253,24 @@ raw HTML で組む場合でも、**Nav / Hero (with CTA button) / 区切られ�
   - より抽象度の高い書き方に置き換える（例: 「[取材 01]さんとの対話回」ではなく「NPO 代表との対話回」or その記述自体を削除）
   - プレースホルダとして目立って残すくらいなら、削る / 抽象化する方が良い
 - 性格付けや役割を書く時は、団体自身が使っている語を使う
-- **CSS class は Tailwind ユーティリティのみ使う**。任意のセマンティック class 名（`arc-link`, `nav-desktop`, `site-hero`, `topfan-card` 等）は**禁止**。
+- **CSS class は Tailwind v4 ユーティリティのみ使う**。任意のセマンティック class 名（`arc-link`, `nav-desktop`, `site-hero`, `topfan-card` 等）は**禁止**。
   - 理由: arvex は **Tailwind 以外の CSS ファイルを定義していない**。任意 class 名を書くとブラウザは何も適用せず、Nav が縦並びになる / Hero が崩れる等のレイアウト破綻が起きる
   - ✅ `<a className="text-sm hover:opacity-70 transition">取材姿勢</a>`
   - ✅ `<ul className="hidden md:flex gap-8">...</ul>`
   - ❌ `<a className="arc-link">取材姿勢</a>`（`arc-link` という CSS は存在しない）
   - ❌ `<ul className="nav-desktop">`（`nav-desktop` という CSS は存在しない）
-  - 細かい制御が必要なら `style={{...}}` の inline style か Tailwind arbitrary values（`text-[14px]`, `bg-[#fafafa]`, `gap-[clamp(...)]` 等）を使う
   - Theme.tsx が `.type-h1` `.type-body-md` 等の `.type-<key>` クラスは emit するので、それは使ってよい
+- **🚫 Tailwind arbitrary value (`bg-[#xxx]`, `rounded-[Npx]`, `shadow-[...]`) は使わない**。
+  - 理由: Tailwind v4 は build 時に**ソース TSX のみ**を scan して使われている class の CSS を生成する。MDX は **DB 保存の runtime 文字列**で Tailwind から見えないので、arbitrary class は HTML に書かれても**対応する CSS が存在せず無効**になる。
+  - 代わりに、**色 / カスタムサイズ / 影 / 回転 / グラデーション / カスタムフォントは inline `style={{...}}` で書く**（MDX ランタイムは `blockJS=false` で動かしているので JSX 式は通る）:
+    - ✅ `<a className="inline-flex items-center gap-2 transition" style={{background: "#ee6c4d", color: "#fdf7e9", padding: "12px 28px", borderRadius: "999px", boxShadow: "6px 6px 0 #1a2236", fontFamily: "Yusei Magic"}}>...</a>`
+    - ✅ `<div style={{transform: "rotate(-4deg)", boxShadow: "10px 10px 0 rgba(0,0,0,0.1)"}}>polaroid frame</div>`
+    - ✅ `<section style={{background: "#fdf7e9"}}>...</section>`
+    - ❌ `<a className="bg-[#ee6c4d] text-[#fdf7e9] rounded-[999px] shadow-[6px_6px_0_#1a2236]">` (CSS 無く効かない)
+    - ❌ `<div className="rotate-[-4deg]">` (CSS 無く効かない)
+  - **`className` は Tailwind の標準 utility のみ使う** — 既存のコンポーネント (Hero / Nav / Footer / Section / Card / Theme) で使われている class は build に含まれている: `flex`, `grid`, `gap-4`, `gap-8`, `mt-4`, `mb-8`, `px-6`, `py-4`, `max-w-7xl`, `mx-auto`, `relative`, `absolute`, `fixed top-0`, `inset-x-0`, `z-50`, `hidden md:flex`, `hidden md:block`, `lg:grid-cols-2`, `lg:grid-cols-3`, `text-sm`, `text-base`, `text-lg`, `text-xl`, `font-medium`, `font-bold`, `rounded-full`, `transition`, `hover:opacity-70`, `items-center`, `justify-between`, `space-y-4`, `space-y-8`, etc.
+  - **media query が必要なものは Tailwind の responsive prefix** (`md:` `lg:`) を使う。inline style は media query を持てないので、レスポンシブな振る舞いは Tailwind に頼る。
+  - 迷ったら **inline style で書く**（確実に効く）
 - **image_specs は `source: "reuse"` のみ使う。`generate` は禁止**。
   画像は提供された素材 URL からだけ選ぶ。素材に合う画像が無い場面は、
   その画像を使わない設計に変える（タイポグラフィ・色面・余白・SVG 風アイコン等で構成）。
@@ -361,7 +380,28 @@ def validate_mdx(mdx: str, image_urls: set[str]) -> None:
             f"外部 CSS が必要なセマンティック class が検出されました: "
             f"{sorted(bad_classes)[:20]}\n"
             f"arvex は team 専用 CSS ファイルを定義していないので、これらは適用されない。"
-            f"Tailwind utility か inline style に書き直してください。"
+            f"Tailwind utility class（arbitrary values 含む）に書き直してください。"
+        )
+    # Tailwind arbitrary value class (`bg-[#xxx]`, `rounded-[Npx]` etc.) は build 時に
+    # CSS が生成されない (Tailwind v4 は DB 内 MDX を scan しない) ので無効。inline style に置換させる。
+    arbitrary_classes: set[str] = set()
+    for class_str in _CLASSNAME_RE.findall(mdx):
+        for tok in class_str.split():
+            # responsive prefix を剥がして本体を見る (md:bg-[#xxx] -> bg-[#xxx])
+            base = tok.split(":")[-1]
+            # hover:bg-... なども同様
+            if "[" in base and "]" in base:
+                # font-[Yusei_Magic] のように font-family は inline style か Theme で設定すべき
+                # 全ての arbitrary value (角括弧含む) を弾く
+                arbitrary_classes.add(tok)
+    if arbitrary_classes:
+        raise ValueError(
+            f"Tailwind arbitrary value class が {len(arbitrary_classes)} 種類検出されました。"
+            f"これらは Tailwind が build 時に scan しないので CSS が生成されず無効になります。"
+            f"**inline `style={{{{...}}}}`** に書き直してください "
+            f"(色: `style={{{{background: '#ee6c4d', color: '#fdf7e9'}}}}` / "
+            f"shadow / rounded / rotate / カスタムサイズすべて inline)。\n"
+            f"検出例: {sorted(arbitrary_classes)[:15]}"
         )
     for src in _SRC_ATTR_RE.findall(mdx):
         if not src or src.startswith("data:") or not src.startswith("http"):
@@ -1274,6 +1314,7 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
             model=MODEL,
             tools="Read",
             allowed_dirs=allowed,
+            timeout=1800,
         )
 
     specs_text = claude_cli.extract_block(raw, "IMAGE_SPECS")
@@ -1298,7 +1339,7 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
     )
 
     image_urls = {img["url"] for img in images}
-    validate_mdx(mdx, image_urls)
+    validate_mdx(mdx, image_urls | known_source_urls)
 
     if form_url:
         mdx = mdx.replace("{{FORM_URL}}", form_url)
@@ -1326,7 +1367,7 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
         org=org,
         mdx_current=mdx,
         components_dir=components_dir,
-        image_urls=image_urls,
+        image_urls=image_urls | known_source_urls,
         form_url=form_url,
     )
 

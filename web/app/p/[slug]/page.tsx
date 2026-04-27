@@ -38,7 +38,11 @@ export default async function ProposalPage({
     <MotionRoot>
       <div className="proposal-root">
         <SmoothScroll />
-        <MDXRemote source={row.mdx} components={proposalComponents} />
+        <MDXRemote
+          source={row.mdx}
+          components={proposalComponents}
+          options={{ mdxOptions: {}, parseFrontmatter: false, scope: {}, blockJS: false }}
+        />
       </div>
     </MotionRoot>
   );
