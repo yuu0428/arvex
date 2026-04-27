@@ -32,10 +32,16 @@ def _http_execute(statements: list[dict]) -> list:
     return resp.json()["results"]
 
 
+def _check_result(result: dict, sql: str) -> dict:
+    if result.get("type") != "ok":
+        raise RuntimeError(f"DB error on `{sql}`: {result}")
+    return result
+
+
 def execute(sql: str, params: list = None) -> dict:
     stmt = {"sql": sql, "args": [{"type": "text", "value": str(p)} if p is not None else {"type": "null"} for p in (params or [])]}
     results = _http_execute([stmt])
-    return results[0]
+    return _check_result(results[0], sql)
 
 
 def executemany(statements: list[tuple]) -> None:
@@ -43,7 +49,9 @@ def executemany(statements: list[tuple]) -> None:
         {"sql": sql, "args": [{"type": "text", "value": str(p)} if p is not None else {"type": "null"} for p in (params or [])]}
         for sql, params in statements
     ]
-    _http_execute(stmts)
+    results = _http_execute(stmts)
+    for (sql, _), result in zip(statements, results):
+        _check_result(result, sql)
 
 
 def init_db():
@@ -102,7 +110,19 @@ def list_orgs(status: str = None) -> list[dict]:
 # --- proposals ---
 
 def insert_proposal(org_id: str, slug: str, expires_at: str) -> str:
+    """Upsert by slug: drop any existing row for this slug, then insert fresh.
+
+    Without this, regeneration silently kept stale MDX in the DB because
+    `proposals.slug UNIQUE` rejected the second INSERT and the subsequent UPDATE
+    targeted a UUID that was never written.
+    """
     proposal_id = new_id()
+    existing = execute("SELECT id FROM proposals WHERE slug = ?", [slug])
+    rows = _parse_rows(existing)
+    if rows:
+        old_id = rows[0]["id"]
+        execute("UPDATE outreach SET proposal_id = NULL WHERE proposal_id = ?", [old_id])
+        execute("DELETE FROM proposals WHERE id = ?", [old_id])
     execute(
         "INSERT INTO proposals (id, org_id, slug, expires_at) VALUES (?, ?, ?, ?)",
         [proposal_id, org_id, slug, expires_at],

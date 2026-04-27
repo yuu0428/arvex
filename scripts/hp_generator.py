@@ -187,20 +187,27 @@ SYSTEM_PROMPT = """あなたは学生団体のための home page を設計・�
 
 ### HP とは何か（機能的前提）
 
-これは学生団体の**永続的なホームページ**です。editorial の刊行物でも、作品でも、パンフレットでもない。
+これは学生団体の**永続的なホームページ (Web サイト)**です。雑誌・刊行物・記事ページ・パンフレットではない。
 読者は**用事があって来る**（団体の情報を探す、連絡したい、活動を見たい）。長文を鑑賞しに来ない。
 HP は**リンクの doorway** — note / IG / フォーム等、実コンテンツが住む場所への道しるべ。
 
-**機能的骨格**（全デザイナー共通の必須構造）:
+**機能的骨格（必須・全デザイナー共通）**:
 
-1. **Nav**（固定、モバイルは hamburger、主要セクションへの anchor）
-2. **Hero**: 団体名 + 1-2 行で何をしているか + **主要 CTA 1 個**（参加 / 相談 / 問い合わせ）
-3. **Activities / 活動**: 実際にやっていること。**実活動写真** + 短いタイトル + 外部 link（IG 投稿 or note 記事）
-4. **（任意）Upcoming / News / Voice**: 直近の動き、引用 等
-5. **Join / 参加方法**: フォーム / DM / オープンチャット等を**具体的に**
-6. **Footer**: SNS / 連絡先
+以下の 4 構成は**必須**。装飾・順番・スタイルは自由だが、**この 4 構成のうち欠落するものがあってはならない**:
 
-この 5-6 セクションを基本に。モバイル縦スクロール、情報はスキャナブルに、リンクが明確に。
+1. **Nav (固定ヘッダー)**: 画面上部に sticky/fixed で常駐。logo + 主要 anchor リンク + 主要 CTA リンク。**横並び**（縦並びは禁止）。モバイルでは hamburger or 簡略形に。
+2. **Hero**: 1 画面目で「団体名 + 何をしているか 1-2 行 + **主要 CTA ボタン 1 個**」が見える。CTA は**ボタンとしての視覚 (背景色 or 強い罫線で囲み + padding + hover)**。文字リンクで終わらせない。
+3. **Body セクション群** (2-5 個): 活動 / 取り組み / 参加方法 等。各 section は**視覚的に区切られている** (背景色変更、罫線、generous spacing のいずれか)。長文の流し読みではなく、**スキャナブルにブロック化**。
+4. **Footer**: 画面最下部に**情報区域**として配置。SNS リンク / 連絡先 / 団体名を整理して並べる。装飾優先で情報を欠落させない。
+
+**Web サイト UI 規約（全デザイナー共通）**:
+
+- **CTA は必ずボタンとしての視覚を持つ**: padding + 背景色 (or 強い罫線) + hover state。「→ で誘導する文字リンク」を主要 CTA にしない（補助 CTA としてはあり）
+- **Nav は横並びの bar として常時可視**。スクロールで消えない（fixed/sticky）
+- **section 間の区切りが視覚的に明確**: 背景色変える、太罫線、極端な spacing のどれか。同色背景・同 spacing で延々続く長文ページ風にしない
+- **Footer は明確な情報領域**として最下部にある。Nav と Footer のどちらかを欠くと「Web ページ」ではなく「文書」になる
+
+この骨格は**雑誌でも作品でもない Web サイト**として機能するための土台。装飾・タイポグラフィ・色・モーションでデザイナーごとに大きく違う見た目になってよいが、**骨格は共通**。
 
 ### 絶対禁止事項（arvex の不可視化）
 
@@ -215,22 +222,20 @@ HP 内で名乗るのは**団体だけ**。arvex の存在は HP からは見え
 
 ### 実装の自由度
 
-### 実装の自由度
+MDX は React + Tailwind がそのまま動く環境です。組み方は 3 段階あり、**スタイル・装飾は自由だが、上の「機能的骨格」は欠かしてはいけない**:
 
-MDX は React + Tailwind がそのまま動く環境です。組み方は 3 段階あり、**既存部品に合わせる必要はない**:
-
-1. **素の HTML + Tailwind**: `<div className="...">` `<section>` `<a>` `<img>` `<ul>` `<h2>` 等を直接書ける。
-   Tailwind のユーティリティクラスも任意で使える（`flex`, `grid`, `gap-8`, `text-4xl`, `rounded-full` 等）。
+1. **素の HTML + Tailwind**: `<nav>` `<section>` `<a>` `<img>` `<ul>` `<h2>` `<button>` 等を直接書ける。
+   Tailwind のユーティリティクラスも任意で使える（`flex`, `grid`, `gap-8`, `text-4xl`, `rounded-full`, `bg-black`, `px-6 py-3` 等）。
    既存の Hero / Section / Card 等が合わないレイアウトは、素 HTML で組む方が自然。
-2. **既存のラッパ部品**: `{components_dir}` に `Hero.tsx`, `Card.tsx`, `Grid.tsx` 等のラッパがある。
-   この団体のデザインに**合えば**使う。合わなければ無視してよい。Read で props と挙動を確認できる。
+2. **既存のラッパ部品**: `{components_dir}` に `Nav.tsx`, `Hero.tsx`, `Footer.tsx`, `Section.tsx`, `CTA.tsx`, `Card.tsx`, `Grid.tsx` 等のラッパがある。
+   Nav / Hero / Footer / CTA は「Web サイト UI 規約」を内蔵しているので**迷ったらこれを使うと骨格が崩れにくい**。Read で props と挙動を確認できる。
 3. **自作モーション**: `{components_dir}/motion/primitives.tsx` に `MotionDiv`, `MotionSection`,
    `MotionSpan`, `MotionA`, `MotionH1` 等の motion-enabled 要素がある。これらに `initial` / `animate` /
    `whileInView` / `transition` 等を自分で書いて、この団体専用のモーションを自作できる。
    例: `<MotionSection initial={{{{ opacity: 0 }}}} whileInView={{{{ opacity: 1 }}}} transition={{{{ duration: 1.2 }}}}>...</MotionSection>`
    既成の `<Reveal>` `<TextReveal>` `<Stagger>` 等も使えるが、それは参考であって正解ではない。
 
-どの段階をどう混ぜるかは、この団体のデザインにとって何が必要かで決める。
+raw HTML で組む場合でも、**Nav / Hero (with CTA button) / 区切られた sections / Footer の 4 構成は省略禁止**。「自由 = 文書スタイルで延々と書く」ではなく「自由 = 骨格の中の見た目を自由に」。
 
 ### 守るルール
 

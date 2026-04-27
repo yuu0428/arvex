@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS proposals (
     interview     TEXT,                   -- JSON: [{round, questions, answers}] main agent x persona のヒアリング履歴
     mockup_url    TEXT,                   -- Codex 生成 LP モックアップの Blob URL (audit + 送付用)
     images        TEXT,                   -- JSON: [{role, url, prompt, aspect_ratio, alt}]
-    html          TEXT,                   -- 完全な HTML 文字列（<!DOCTYPE html>...</html>）
+    mdx           TEXT,                   -- 単一ターン MDX パイプラインの出力（next-mdx-remote/rsc が描画）
+    html          TEXT,                   -- 旧フォーマット（完全 HTML 文書）— mdx へ移行済み
     status        TEXT DEFAULT 'active',  -- active | deleted
     expires_at    TEXT,
     created_at    TEXT DEFAULT (datetime('now'))
