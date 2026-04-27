@@ -239,6 +239,14 @@ MDX は React + Tailwind がそのまま動く環境です。組み方は 3 段�
   - より抽象度の高い書き方に置き換える（例: 「[取材 01]さんとの対話回」ではなく「NPO 代表との対話回」or その記述自体を削除）
   - プレースホルダとして目立って残すくらいなら、削る / 抽象化する方が良い
 - 性格付けや役割を書く時は、団体自身が使っている語を使う
+- **CSS class は Tailwind ユーティリティのみ使う**。任意のセマンティック class 名（`arc-link`, `nav-desktop`, `site-hero`, `topfan-card` 等）は**禁止**。
+  - 理由: arvex は **Tailwind 以外の CSS ファイルを定義していない**。任意 class 名を書くとブラウザは何も適用せず、Nav が縦並びになる / Hero が崩れる等のレイアウト破綻が起きる
+  - ✅ `<a className="text-sm hover:opacity-70 transition">取材姿勢</a>`
+  - ✅ `<ul className="hidden md:flex gap-8">...</ul>`
+  - ❌ `<a className="arc-link">取材姿勢</a>`（`arc-link` という CSS は存在しない）
+  - ❌ `<ul className="nav-desktop">`（`nav-desktop` という CSS は存在しない）
+  - 細かい制御が必要なら `style={{...}}` の inline style か Tailwind arbitrary values（`text-[14px]`, `bg-[#fafafa]`, `gap-[clamp(...)]` 等）を使う
+  - Theme.tsx が `.type-h1` `.type-body-md` 等の `.type-<key>` クラスは emit するので、それは使ってよい
 - **image_specs は `source: "reuse"` のみ使う。`generate` は禁止**。
   画像は提供された素材 URL からだけ選ぶ。素材に合う画像が無い場面は、
   その画像を使わない設計に変える（タイポグラフィ・色面・余白・SVG 風アイコン等で構成）。
@@ -304,6 +312,24 @@ _IMG_PLACEHOLDER_RE = re.compile(r"\{\{img:([A-Za-z0-9_-]+)\}\}")
 # JSX テンプレートリテラル内に placeholder が入っているパターンを検出
 # 例: src={`{{img:${p.img}}}`} — Python 置換器では拾えない
 _JSX_TEMPLATE_PLACEHOLDER_RE = re.compile(r"`[^`]*\{\{img:[^`]*\$\{[^`]*`")
+_CLASSNAME_RE = re.compile(r'className=["\']([^"\']+)["\']')
+
+# 「明らかにセマンティックな未定義 class」だけ検出する。Tailwind 全網羅の whitelist は非現実的なので、
+# arvex で禁じる prefix を blacklist する方針。
+# - Tailwind には arc / nav / site / page / hero / card / article 等のプレフィックス utility は存在しない
+# - これらは Claude が「セマンティック CSS module を定義してる前提」で誤って書く時のシグナル
+_FORBIDDEN_CLASS_PREFIXES = (
+    "arc-", "nav-", "site-", "page-", "hero-", "card-", "article-", "topfan-",
+    "brand-", "footer-", "header-", "section-", "issue-", "post-", "container-",
+    "wrapper-", "layout-",
+)
+
+
+def _is_forbidden_semantic_class(token: str) -> bool:
+    if not token:
+        return False
+    # Tailwind の `bg-card` のような known shorthand（実在）と区別: `card-` は forbidden、`bg-card` は OK
+    return token.startswith(_FORBIDDEN_CLASS_PREFIXES)
 
 
 def validate_mdx(mdx: str, image_urls: set[str]) -> None:
@@ -319,6 +345,19 @@ def validate_mdx(mdx: str, image_urls: set[str]) -> None:
     remaining = _IMG_PLACEHOLDER_RE.findall(mdx)
     if remaining:
         raise ValueError(f"unresolved image placeholders: {remaining}")
+    # 未定義のセマンティック class 検出（arc-link / nav-desktop 等を防ぐ）
+    bad_classes: set[str] = set()
+    for class_str in _CLASSNAME_RE.findall(mdx):
+        for tok in class_str.split():
+            if _is_forbidden_semantic_class(tok):
+                bad_classes.add(tok)
+    if bad_classes:
+        raise ValueError(
+            f"外部 CSS が必要なセマンティック class が検出されました: "
+            f"{sorted(bad_classes)[:20]}\n"
+            f"arvex は team 専用 CSS ファイルを定義していないので、これらは適用されない。"
+            f"Tailwind utility か inline style に書き直してください。"
+        )
     for src in _SRC_ATTR_RE.findall(mdx):
         if not src or src.startswith("data:") or not src.startswith("http"):
             continue
@@ -738,15 +777,26 @@ DESIGNER_SELECTION_SYSTEM_PROMPT = """あなたは arvex のデザインディ�
 
 ### 判断基準
 
-1. 団体の**性格**（手作り / 編集 / 整然 / 抗議 / 視覚主義）とデザイナーの思想が合っているか
-2. 団体の**素材の質**（写真が強い / 言葉が強い / 数字が強い / 活動の幅が広い）とデザイナーの伝達手段が合っているか
+1. 団体の**性格** — 各デザイナーの「思想」と団体のあり方が合うか
+2. 団体の**素材プロフィール** — 写真の量・活動の幅・コンテンツの種類
 3. 団体の**読者**がデザイナーの表現で動くか
+
+### 具体的な fit ヒント
+
+- 写真 10 枚以上 + 活動が多種多様 → **zine-kid** または **poster-designer** を強く検討
+- 取材記事・連載・対話・ポッドキャストが中心、写真は控えめ → **editorial-purist**
+- 数字・データ・正確性・コンサル・分析系 → **swiss-minimalist**
+- 社会課題・平和・人権・環境・国際支援系 → **brutalist**
+- ビジュアル一発で印象を作る集客系（祭・展示・スポーツ・料理） → **poster-designer**
+
+**editorial-purist は default ではない**。明確な「言葉中心」の根拠が無い限り、他のデザイナーを優先検討する。
 
 ### 出力形式（前置き後書きなし）
 
 <!-- CHOICE:BEGIN -->
 selected: <デザイナーの name スラグ>
 reason: <1-2 文で、なぜこのデザイナーか>
+ruled_out: <他のデザイナーを除外した理由を 1 文で（特に editorial-purist を選ばなかった理由 or editorial-purist を選んだ場合は他を選ばなかった理由）>
 <!-- CHOICE:END -->
 """
 
@@ -757,10 +807,10 @@ def _build_designer_summaries(designers: list[designer_registry.Designer]) -> st
         lines.append(
             f"## {d.name}\n"
             f"- 通称: {d.display_name}\n"
-            f"- 性格: {d.description}\n"
+            f"- 思想: {d.description}\n"
             f"- 愛用書体: {', '.join(d.signature_fonts)}\n"
             f"- 色方針: {d.palette_rules}\n"
-            f"- モーション: {d.motion_profile}"
+            f"- モーション性格: {d.motion_profile}"
         )
     return "\n\n".join(lines)
 
@@ -779,6 +829,32 @@ def _select_designer(
     summary_parts.append("notable facts:\n" + _format_notable_facts_for_summary(notable_facts))
     transcript_condensed = _format_transcript_for_designer(transcript)[:3000]
     summary_parts.append(f"ヒアリング transcript:\n{transcript_condensed}")
+
+    # visual signal: 写真の多さ・活動の多様性を Claude に伝える
+    visual_signal_lines = []
+    try:
+        source_assets = json.loads(org.get("source_assets") or "[]")
+    except Exception:
+        source_assets = []
+    post_thumbs = [a for a in source_assets if a.get("type") == "post_thumb"]
+    photo_count = len(post_thumbs)
+    visual_signal_lines.append(f"- 採取された活動写真: {photo_count} 枚")
+
+    # 各写真 caption の長さ平均（活動の説明が豊富か）
+    captions = [(a.get("caption") or "").strip() for a in post_thumbs]
+    captions = [c for c in captions if c]
+    if captions:
+        avg_caption_len = sum(len(c) for c in captions) // len(captions)
+        visual_signal_lines.append(f"- 写真キャプションの平均長: {avg_caption_len} 字")
+
+    # bio の活動列挙数を粗く（読点で split）
+    bio = org.get("bio_summary") or ""
+    activity_count_in_bio = bio.count("、") + bio.count("\n")
+    visual_signal_lines.append(f"- bio の語の区切り数: {activity_count_in_bio}（多いほど多様な活動）")
+
+    visual_signal_block = "\n".join(visual_signal_lines) if visual_signal_lines else "（visual signal 取得不可）"
+    summary_parts.append("素材の visual 特性:\n" + visual_signal_block)
+
     user_prompt = "\n\n".join(summary_parts) + "\n\nこの団体に最適なデザイナーを 1 人選んでください。"
 
     sys_prompt = DESIGNER_SELECTION_SYSTEM_PROMPT.format(
@@ -819,18 +895,16 @@ def _build_design_system_prompt(
     arvex_tech = SYSTEM_PROMPT.format(components_dir=str(components_dir))
     skill_prelude = _load_frontend_design_prelude()
 
-    designer_section = (
-        f"# あなたのデザイナーとしての人格\n\n"
-        f"{designer.persona_markdown}\n\n"
-        f"このペルソナに**一貫して**コミット。中間的な無難なデザインは禁止。\n"
-        f"moodboard 画像があれば Read で開いて、あなたが好むビジュアル言語を再確認してから設計を始める。"
-    )
-
     parts: list[str] = []
     if skill_prelude:
         parts.append(f"# Foundation: frontend-design skill\n\n{skill_prelude}")
-    parts.append(designer_section)
-    parts.append(f"# arvex 実装規約 (技術的制約、デザイン判断の後で適用)\n\n{arvex_tech}")
+    parts.append(f"# 機能的団体 HP の前提（不変、最優先）\n\n{arvex_tech}")
+    parts.append(
+        f"# aesthetic の皮（適用層 — 機能的構造を上書きしない）\n\n"
+        f"{designer.persona_markdown}\n\n"
+        f"このペルソナは aesthetic 表面のみを担当。HP の機能的骨格（Nav / Hero+CTA / "
+        f"Activities / Join / Footer）と arvex 実装規約は上書きしない。"
+    )
     return "\n\n---\n\n".join(parts)
 
 
