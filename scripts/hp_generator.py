@@ -312,8 +312,9 @@ raw HTML で組む場合でも、**Nav / Hero (with CTA button) / 区切られ�
 - `<script>` 禁止
 - ブランドマーク画像が提供されている場合、最初に Read で開いて視認し、パレットと書体、
   Nav / Footer の `logo` prop に反映させる
-- **🖼️ 画像は必ずサイズが制約されていること**（PC 1440px で巨大化・崩れを防ぐ）:
-  - **推奨: `<Image role="..." />` ラッパー部品を使う**。role を指定するだけで aspectRatio / maxWidth / objectFit が決まる:
+- **🖼️ 画像はまず `<Image role="..." />` ラッパー部品を使う**（PC 1440px で巨大化・崩れを防ぐ）。
+  raw `<img>` は polaroid 風 frame・collage・Hero の意図的な特殊レイアウト等、**装飾的に枠を組む時だけ**使う。
+  通常の活動写真・カード thumb・banner・logo は**全て `<Image>`** で書く:
     - `<Image src="..." alt="..." role="hero" />` — 16:9 / 720px max / cover
     - `<Image src="..." alt="..." role="card" />` — 4:3 / 480px max / cover
     - `<Image src="..." alt="..." role="thumb" />` — 1:1 / 240px max / cover
@@ -321,7 +322,7 @@ raw HTML で組む場合でも、**Nav / Hero (with CTA button) / 区切られ�
     - `<Image src="..." alt="..." role="banner" />` — 21:9 / 1280px max / cover
     - `<Image src="..." alt="..." role="full" />` — 16:9 / no cap (full-bleed) / cover
     - 微調整: `<Image ... role="card" aspect="3/2" maxWidth={{600}} />`
-  - **どうしても raw `<img>` を書く場合**（polaroid 風フレーム / collage / Hero の特殊レイアウト等）、`style` に最小これだけ:
+  - **🚨 raw `<img>` を書く場合**（装飾的な枠やコラージュなど特殊な時だけ）、`style` に最小これだけ:
     - `aspectRatio` (例: `"4/3"`, `"16/9"`, `"1/1"`)
     - `width` (例: `"100%"` または固定 `"44px"`)
     - `objectFit` (`"cover"` 通常 / `"contain"` ロゴや透過 PNG)
@@ -357,6 +358,33 @@ _JSX_TEMPLATE_PLACEHOLDER_RE = re.compile(r"`[^`]*\{\{img:[^`]*\$\{[^`]*`")
 _CLASSNAME_RE = re.compile(r'className=["\']([^"\']+)["\']')
 # 開きタグ全体を捕捉（属性が改行をまたぐパターンに備えて非貪欲）
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.DOTALL)
+
+
+def auto_fix_img_constraints(mdx: str) -> str:
+    """raw `<img>` で width: "100%" だが maxWidth 未指定のものに maxWidth: "640px" を注入する。
+
+    Claude が SYSTEM_PROMPT のルールを守れないことが多いので、Python 側で決定論的に補う。
+    PC で巨大化しないための保険。640px は活動写真として一般的な上限値。
+    """
+    fluid_re = re.compile(r"width\s*:\s*['\"]?\s*(100%|auto)\s*['\"]?")
+
+    def fix_one(match: re.Match) -> str:
+        tag = match.group(0)
+        if "maxWidth" in tag:
+            return tag
+        if not fluid_re.search(tag):
+            return tag
+        # style={{ ... }} の中身に maxWidth: "640px" を挿入
+        # `style={{ width: "100%", ...}}` の `{{` の直後に挿入する
+        new_tag = re.sub(
+            r"(style\s*=\s*\{\{\s*)",
+            r'\1maxWidth: "640px", ',
+            tag,
+            count=1,
+        )
+        return new_tag
+
+    return _IMG_TAG_RE.sub(fix_one, mdx)
 
 # 「明らかにセマンティックな未定義 class」だけ検出する。Tailwind 全網羅の whitelist は非現実的なので、
 # arvex で禁じる prefix を blacklist する方針。
@@ -1390,7 +1418,49 @@ def generate_and_save(org_id: str, form_url: str | None = None) -> str:
     )
 
     image_urls = {img["url"] for img in images}
-    validate_mdx(mdx, image_urls | known_source_urls)
+    # 画像 size 制約は Python 側で deterministic に補う（width: "100%" + maxWidth 欠落 → 640px 注入）
+    mdx = auto_fix_img_constraints(mdx)
+    # それでも残る違反があれば Claude に修正を依頼
+    fix_attempts = 0
+    while fix_attempts < 2:
+        try:
+            validate_mdx(mdx, image_urls | known_source_urls)
+            break
+        except ValueError as e:
+            fix_attempts += 1
+            print(f"[validate] MDX invalid (attempt {fix_attempts}): {str(e)[:200]}", flush=True)
+            print(f"[validate] requesting Claude to fix ...", flush=True)
+            fix_user_prompt = (
+                "前回出力した MDX が validation に失敗しました。下記のエラーを直して、"
+                "**MDX 全体を新しく出力**してください。IMAGE_SPECS は変更しないので、MDX ブロックだけ返す。\n\n"
+                f"### 失敗内容\n{e}\n\n"
+                f"### 失敗した MDX (一部)\n```\n{mdx[:3000]}\n...\n{mdx[-2000:]}\n```\n\n"
+                "### 出力\n<!-- MDX:BEGIN --> から <!-- MDX:END --> までの 1 ブロックのみ。前置き・後書きなし。"
+            )
+            try:
+                # 修正は text 変換だけなので Read tool は不要
+                fix_raw = claude_cli.call_text(
+                    system_prompt=system_prompt,
+                    user_prompt=fix_user_prompt,
+                    model=MODEL,
+                    timeout=900,
+                )
+            except Exception as call_e:
+                print(f"[validate] fix call failed: {call_e}", flush=True)
+                raise e
+            new_mdx = claude_cli.extract_block(fix_raw, "MDX")
+            if not new_mdx:
+                print(f"[validate] fix output missing MDX block — keeping previous", flush=True)
+                raise e
+            mdx = _IMG_PLACEHOLDER_RE.sub(
+                lambda m: role_to_url.get(m.group(1)) or m.group(0),
+                new_mdx,
+            )
+            # fix 後も image size 補完を必ず通す
+            mdx = auto_fix_img_constraints(mdx)
+    else:
+        # while-else: 2 回直しても通らなかったら最後の例外を raise
+        validate_mdx(mdx, image_urls | known_source_urls)
 
     if form_url:
         mdx = mdx.replace("{{FORM_URL}}", form_url)

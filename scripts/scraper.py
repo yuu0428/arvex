@@ -19,7 +19,7 @@ from pathlib import Path
 import httpx
 from playwright.sync_api import Page, sync_playwright
 
-from scripts import blob, db, link_explorer
+from scripts import blob, db, link_explorer, web_enricher
 
 STATE_PATH = Path(__file__).parent.parent / ".ig_state.json"
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
@@ -518,16 +518,43 @@ def scrape_and_save(handle: str, university: str | None = None) -> str:
         flush=True,
     )
 
-    # 5) notable_facts 抽出: 全素材コーパスから固有情報を regex で取り出す
-    corpus_parts: list[str] = [profile.get("biography") or ""]
+    # 5) IG-side notable_facts を抽出（anchor 用）
+    ig_corpus_parts: list[str] = [profile.get("biography") or ""]
     for st in source_text:
-        corpus_parts.append(st.get("content") or "")
+        ig_corpus_parts.append(st.get("content") or "")
     for art in published_content.get("articles") or []:
-        corpus_parts.append(art.get("title") or "")
-        corpus_parts.append(art.get("description") or "")
-        corpus_parts.append(art.get("body") or "")
-    corpus = "\n".join(p for p in corpus_parts if p)
-    notable_facts = extract_notable_facts(corpus)
+        ig_corpus_parts.append(art.get("title") or "")
+        ig_corpus_parts.append(art.get("description") or "")
+        ig_corpus_parts.append(art.get("body") or "")
+    ig_corpus = "\n".join(p for p in ig_corpus_parts if p)
+    ig_notable_facts = extract_notable_facts(ig_corpus)
+
+    # 6) Jina web 検索で entity-anchor 補強。
+    #    IG の identity（団体名・大学・人名・イベント名・公式ドメイン）を anchor に取り、
+    #    anchor が含まれない検索結果は同名他団体や無関係まとめサイトとして drop する。
+    print("enriching with Jina web search ...", flush=True)
+    web_enrichment = web_enricher.enrich(profile, ig_notable_facts, university)
+    for r in web_enrichment["results"]:
+        source_text.append({
+            "type": "web_page",
+            "url": r["url"],
+            "content": r["content"],
+        })
+
+    # 7) final notable_facts: IG + web を合算して再抽出
+    if web_enrichment["results"]:
+        web_corpus = "\n".join(r["content"] for r in web_enrichment["results"])
+        notable_facts = extract_notable_facts(ig_corpus + "\n" + web_corpus)
+    else:
+        notable_facts = ig_notable_facts
+    notable_facts["_sources"] = {
+        "web_queries": web_enrichment["queries_used"],
+        "web_pages": [
+            {"url": r["url"], "domain": r["domain"]}
+            for r in web_enrichment["results"]
+        ],
+        "anchor_size": web_enrichment["anchor_size"],
+    }
     print(
         f"  notable_facts: "
         f"{len(notable_facts['names'])} names, "
