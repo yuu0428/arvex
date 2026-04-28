@@ -35,3 +35,5 @@ scripts/designers/*/moodboard/
 
 # Local logo drafts
 logo/
+.vercel
+.env*.local

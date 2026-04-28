@@ -27,9 +27,12 @@ USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
-MAX_POSTS = 20  # 直近何投稿まで取るか（多いほど素材密度が上がる）
+MAX_POSTS = 60  # 直近何投稿まで取るか（多いほど素材密度が上がる）
 EXTERNAL_MAX_CHARS = 20000  # 外部ページ1本あたりの抽出上限
 MAX_NOTE_BODIES = 6  # note 記事本文を fetch する件数（最新 N 本）
+CAPTION_MAX_CHARS = 800  # 各投稿 caption の上限。長すぎると prompt token を食う
+SCROLL_MAX_ITERATIONS = 30  # IG profile を最大何回スクロールするか
+SCROLL_WAIT_MS = 1400  # スクロール後に新規 thumbnail が描画されるまでの待ち時間
 
 
 def ensure_logged_in(timeout_sec: int = 600):
@@ -71,7 +74,11 @@ def ensure_logged_in(timeout_sec: int = 600):
 
 
 def _collect_images(page: Page, max_posts: int) -> tuple[str | None, list[dict]]:
-    """(profile_picture_url, [{thumb_url, caption}, ...]) を返す。caption は空かも。"""
+    """(profile_picture_url, [{thumb_url, caption}, ...]) を返す。caption は空かも。
+
+    IG profile は最初の ~12 件しか DOM に置かないので、目標件数に達するまで
+    infinite scroll を発火させて遅延ロードする。
+    """
     # プロフィール画像
     profile_pic = page.evaluate("""
         () => {
@@ -80,37 +87,60 @@ def _collect_images(page: Page, max_posts: int) -> tuple[str | None, list[dict]]
         }
     """)
 
-    # 投稿グリッドのサムネイル
-    thumbs = page.evaluate("""
-        (n) => {
+    # IG profile は virtualized scroll で画面外の thumbnail を DOM から外すので、
+    # 一度の querySelectorAll では viewport 周辺の数十件しか取れない。
+    # 累積は Python 側で href→item の dict として保持し、scroll するたびに新規分を merge する。
+    collect_js = """
+        () => {
             const items = [];
-            const links = Array.from(document.querySelectorAll('main article a[href*="/p/"], main a[href*="/p/"]'));
+            const links = Array.from(document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"]'));
             for (const a of links) {
                 const img = a.querySelector('img');
                 if (img?.src) {
                     items.push({ href: a.href, src: img.src, alt: img.alt || '' });
                 }
-                if (items.length >= n) break;
             }
             return items;
         }
-    """, max_posts)
+    """
 
+    accumulated: dict[str, dict] = {}
+
+    def harvest():
+        batch = page.evaluate(collect_js) or []
+        for item in batch:
+            if item["href"] not in accumulated:
+                accumulated[item["href"]] = item
+
+    harvest()
+    last_count = len(accumulated)
+    stable_iters = 0
+
+    for i in range(SCROLL_MAX_ITERATIONS):
+        if len(accumulated) >= max_posts:
+            break
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(SCROLL_WAIT_MS)
+        harvest()
+        if len(accumulated) == last_count:
+            stable_iters += 1
+            # 新規が 3 回連続で増えなくなったら最後まで読み切ったと判断して終了
+            if stable_iters >= 3:
+                break
+        else:
+            stable_iters = 0
+            last_count = len(accumulated)
+
+    thumbs = list(accumulated.values())[:max_posts]
+    print(f"  scroll: collected {len(thumbs)} thumbs after {i+1} scroll iterations", flush=True)
     return profile_pic, thumbs
 
 
 def _fetch_post_text(page: Page, post_url: str) -> str:
-    """投稿ページの full caption を可能な限り抽出。
-
-    og:description は IG によって ~300 chars で切られる。
-    article 全体の innerText を取れば UI 雑音込みでも全文が入る。
-    Claude 側で読ませるので雑音は問題にならない。
-    失敗時は空文字。
-    """
+    """投稿ページの caption を抽出。CAPTION_MAX_CHARS で切り詰める。失敗時は空文字。"""
     try:
-        page.goto(post_url, wait_until="domcontentloaded", timeout=20000)
-        time.sleep(1.2)
-        # article 全体の innerText を優先。より多くのテキストが入る。
+        page.goto(post_url, wait_until="domcontentloaded", timeout=10000)
+        page.wait_for_timeout(700)
         txt = page.evaluate(
             """
             () => {
@@ -123,15 +153,32 @@ def _fetch_post_text(page: Page, post_url: str) -> str:
             """
         ) or ""
         if txt and len(txt.strip()) > 40:
-            return txt.strip()
+            return txt.strip()[:CAPTION_MAX_CHARS]
         # fallback: og:description
         og = page.evaluate(
             "() => document.querySelector('meta[property=\"og:description\"]')?.content "
             "|| document.querySelector('meta[name=\"description\"]')?.content || ''"
         )
-        return og or ""
+        return (og or "")[:CAPTION_MAX_CHARS]
     except Exception:
         return ""
+
+
+def _fetch_captions(context, thumbs: list[dict]) -> None:
+    """各投稿の caption を取得して thumbs[*]['caption'] に格納。失敗は空文字。
+
+    Playwright sync API は同一 context 上での真の並列を許さないので serial。
+    timeout 短め (10s) + sleep 短め (0.7s) で 1 件 1-2 秒に収まる想定。50 件 ≈ 1-2 分。
+    """
+    cur_page = context.new_page()
+    try:
+        for i, t in enumerate(thumbs):
+            cap = _fetch_post_text(cur_page, t["href"])
+            t["caption"] = cap
+            if (i + 1) % 10 == 0 or (i + 1) == len(thumbs):
+                print(f"  caption: {i+1}/{len(thumbs)} fetched", flush=True)
+    finally:
+        cur_page.close()
 
 
 def _fetch_external_text(url: str, max_chars: int = EXTERNAL_MAX_CHARS) -> str:
@@ -253,10 +300,8 @@ def fetch_profile(handle: str) -> dict:
         external_url = external_urls[0] if external_urls else None
 
         profile_pic, thumbs = _collect_images(page, MAX_POSTS)
-
-        # 各投稿の caption（og:description 生文字列）を取る
-        for t in thumbs:
-            t["caption"] = _fetch_post_text(page, t["href"])
+        # caption は別 page で順次 fetch（grid の page を消費しないため）
+        _fetch_captions(context, thumbs)
 
         browser.close()
 

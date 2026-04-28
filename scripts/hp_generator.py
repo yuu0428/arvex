@@ -312,6 +312,24 @@ raw HTML で組む場合でも、**Nav / Hero (with CTA button) / 区切られ�
 - `<script>` 禁止
 - ブランドマーク画像が提供されている場合、最初に Read で開いて視認し、パレットと書体、
   Nav / Footer の `logo` prop に反映させる
+- **🖼️ 画像は必ずサイズが制約されていること**（PC 1440px で巨大化・崩れを防ぐ）:
+  - **推奨: `<Image role="..." />` ラッパー部品を使う**。role を指定するだけで aspectRatio / maxWidth / objectFit が決まる:
+    - `<Image src="..." alt="..." role="hero" />` — 16:9 / 720px max / cover
+    - `<Image src="..." alt="..." role="card" />` — 4:3 / 480px max / cover
+    - `<Image src="..." alt="..." role="thumb" />` — 1:1 / 240px max / cover
+    - `<Image src="..." alt="..." role="logo" />` — 1:1 / 120px max / contain
+    - `<Image src="..." alt="..." role="banner" />` — 21:9 / 1280px max / cover
+    - `<Image src="..." alt="..." role="full" />` — 16:9 / no cap (full-bleed) / cover
+    - 微調整: `<Image ... role="card" aspect="3/2" maxWidth={{600}} />`
+  - **どうしても raw `<img>` を書く場合**（polaroid 風フレーム / collage / Hero の特殊レイアウト等）、`style` に最小これだけ:
+    - `aspectRatio` (例: `"4/3"`, `"16/9"`, `"1/1"`)
+    - `width` (例: `"100%"` または固定 `"44px"`)
+    - `objectFit` (`"cover"` 通常 / `"contain"` ロゴや透過 PNG)
+    - **`width` が `"100%"` / `"auto"` の時は `maxWidth` も必須**（PC で巨大化を防ぐ。例: Hero 720, card 480, thumb 240, アバター 120）
+    - **`width` が固定 px (例: `"44px"`) の時は `maxWidth` 不要**（既にサイズが固定されているので）
+    - 例 (流動): `<img src="..." alt="..." style={{{{ aspectRatio: "4/3", width: "100%", maxWidth: "480px", objectFit: "cover" }}}} />`
+    - 例 (固定): `<img src="..." alt="logo" style={{{{ width: "44px", height: "44px", aspectRatio: "1/1", objectFit: "cover" }}}} />`
+  - これを欠くと PC で画像がコンテナ幅まで伸びて「画面いっぱい」「アスペクト比が崩れる」HP になる
 
 ### 出力形式（この 2 つの delimiter ブロックだけ。前置き・後書き・コードフェンス一切なし）
 
@@ -337,6 +355,8 @@ _IMG_PLACEHOLDER_RE = re.compile(r"\{\{img:([A-Za-z0-9_-]+)\}\}")
 # 例: src={`{{img:${p.img}}}`} — Python 置換器では拾えない
 _JSX_TEMPLATE_PLACEHOLDER_RE = re.compile(r"`[^`]*\{\{img:[^`]*\$\{[^`]*`")
 _CLASSNAME_RE = re.compile(r'className=["\']([^"\']+)["\']')
+# 開きタグ全体を捕捉（属性が改行をまたぐパターンに備えて非貪欲）
+_IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.DOTALL)
 
 # 「明らかにセマンティックな未定義 class」だけ検出する。Tailwind 全網羅の whitelist は非現実的なので、
 # arvex で禁じる prefix を blacklist する方針。
@@ -408,6 +428,37 @@ def validate_mdx(mdx: str, image_urls: set[str]) -> None:
             continue
         if src not in image_urls:
             raise ValueError(f"image src not in provided URLs: {src}")
+    # raw <img> はサイズ制約必須（PC 1440px で画像が画面いっぱいに伸びるのを防ぐ）。
+    # 必須: aspectRatio / objectFit。
+    # それに加えて、width が "100%" / "auto" 等の流動値なら maxWidth も必須。
+    # 一方 width が固定 px (`"44px"` `"320px"` 等) ならそれ自体が cap なので maxWidth 不要。
+    missing_img_constraints: list[str] = []
+    fixed_width_re = re.compile(r"width\s*:\s*['\"]?\s*\d+\s*(px|rem|em)\s*['\"]?")
+    fluid_width_re = re.compile(r"width\s*:\s*['\"]?\s*(100%|auto)\s*['\"]?")
+    for img_tag in _IMG_TAG_RE.findall(mdx):
+        required = ["aspectRatio", "objectFit", "width"]
+        missing = [k for k in required if k not in img_tag]
+        # width が fluid (100% / auto) のときだけ maxWidth も必須
+        if "width" in img_tag and not fixed_width_re.search(img_tag):
+            if "maxWidth" not in img_tag:
+                missing.append("maxWidth")
+        if missing:
+            snippet = img_tag.replace("\n", " ")[:200]
+            missing_img_constraints.append(
+                f"<img> に {missing} が無い: {snippet}"
+            )
+    if missing_img_constraints:
+        raise ValueError(
+            f"raw `<img>` のサイズ制約属性が欠落しています "
+            f"({len(missing_img_constraints)} 箇所)。"
+            f"PC で画像が画面いっぱいに伸びる原因。\n"
+            f"対応: 通常は `<Image role=\"hero\"|\"card\"|\"thumb\"|\"logo\"|\"banner\"|\"full\" />` "
+            f"ラッパー部品を使う。raw `<img>` を書く場合の最小条件:\n"
+            f"  - `aspectRatio`, `objectFit`, `width` が必須\n"
+            f"  - width が `\"100%\"` や `\"auto\"` の時は `maxWidth` も必須（PC で巨大化を防ぐ）\n"
+            f"  - width が固定 px (例: `\"44px\"`) の時は maxWidth 不要\n"
+            f"検出例: {missing_img_constraints[:3]}"
+        )
 
 
 # ========================== Image resolution (same as before) ==========================
