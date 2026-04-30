@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://linear.app/releases",
+    "why": "リリースノートが hero 級に美しく、バージョン番号と日付が主役になる launch-day 感の教科書"
+  },
+  {
+    "url": "https://railway.com",
+    "why": "暗色ベースに鮮明な accent、monospace の spec 表示、CTA の置き方が indie SaaS launch の理想形"
+  },
+  {
+    "url": "https://resend.com",
+    "why": "サンセリフ bold display + 余白 + spec list の構成が「今日出た」テンションを完璧に体現"
+  },
+  {
+    "url": "https://www.val.town",
+    "why": "NEW badge とバージョン感、ツール自身を主役に置く product-first の見せ方が好き"
+  },
+  {
+    "url": "https://zed.dev",
+    "why": "新作エディタとしてのスペック開示（速度・数値）を hero 直下に置く設計が launch LP の理想"
+  },
+  {
+    "url": "https://tuple.app",
+    "why": "暗色 + 鮮明 accent + 製品スクショ hero + spec bullet という launch-day signature の完成形"
+  },
+  {
+    "url": "https://www.cursor.com",
+    "why": "製品 visual と短いコピー、pre-order 的 CTA の置き方が新作リリース LP として完璧"
+  }
+]

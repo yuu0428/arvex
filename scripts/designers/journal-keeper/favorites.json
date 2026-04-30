@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://kottke.org",
+    "why": "1998年から続く個人ブログのarchive、日付ラベルとテキスト主役の構成が信頼の質感を作る原典"
+  },
+  {
+    "url": "https://daringfireball.net",
+    "why": "細い serif と静かな余白だけで20年以上の蓄積を語る、装飾ゼロの persistence"
+  },
+  {
+    "url": "https://www.jsomers.net",
+    "why": "オフホワイト地に明朝風 serif と日付の縦並び、個人 archive の理想形"
+  },
+  {
+    "url": "https://www.bitsaboutmoney.com",
+    "why": "long-form テキストが主役で月別 archive が深く、読み物としての奥行きが ある"
+  },
+  {
+    "url": "https://www.antipope.org/charlie/blog-static/",
+    "why": "Charlie Stross の Diary、年単位の archive ナビが quiet な記録感をそのまま体現"
+  },
+  {
+    "url": "https://craigmod.com",
+    "why": "Noto Serif JP に近い和欧混植と generous な vertical spacing、長期 essay archive の手本"
+  },
+  {
+    "url": "https://www.are.na/editorial",
+    "why": "ページイエロー寄りの地色と mono メタラベル、editorial archive としての texture が近い"
+  }
+]

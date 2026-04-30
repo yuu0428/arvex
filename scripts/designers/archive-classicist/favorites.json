@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.folger.edu/",
+    "why": "Folger Shakespeare Library のデジタル archive は本扉的な静謐さと校訂テキストの精度を版面で示している。"
+  },
+  {
+    "url": "https://www.loebclassics.com/",
+    "why": "Loeb Classical Library のデジタル版は対訳組版と small caps メタ情報の佇まいが奥付の理想形。"
+  },
+  {
+    "url": "https://standardebooks.org/",
+    "why": "Standard Ebooks は本扉・colophon・ornament 罫線まで古典書籍の版面言語を Web に直訳している。"
+  },
+  {
+    "url": "https://www.themorgan.org/",
+    "why": "Morgan Library & Museum の archive ページは余白・セリフ書体・ローマ数字的整列が古典書誌の品位を保つ。"
+  },
+  {
+    "url": "https://classics.mit.edu/",
+    "why": "Internet Classics Archive の最小限の罫線と書名中央配置は本扉そのものの簡潔さで好み。"
+  },
+  {
+    "url": "https://shakespeare.folger.edu/",
+    "why": "Folger Digital Texts の幕・場のローマ数字構造とセリフ本文の余白設計が目録型版面の手本。"
+  },
+  {
+    "url": "https://thecreativeindependent.com/",
+    "why": "The Creative Independent は装飾を罫線と書体だけに絞り、editorial archive のスキャナブルな静けさを成立させている。"
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://reliefweb.int/",
+    "why": "災害・紛争のsituation reportが装飾を一切排して数字と更新日時で並ぶ、緊急情報配信の原型そのもの"
+  },
+  {
+    "url": "https://www.icrc.org/en/donate/emergency-appeal",
+    "why": "ICRCの緊急アピールページは赤バナーと達成率barと寄付CTAが最短距離で並んでいて迷いがない"
+  },
+  {
+    "url": "https://www.msf.org/",
+    "why": "国境なき医師団の現地レポートが写真1枚＋日付＋場所＋短文で淡々と積まれていく、感情ではなく証拠としての構成"
+  },
+  {
+    "url": "https://www.unocha.org/",
+    "why": "OCHAのFlash Updateは見出しに数字と日付しかなく、人道支援サイトの『余白を作らない』論理が徹底している"
+  },
+  {
+    "url": "https://www.mercycorps.org/",
+    "why": "disaster response ページが受益者数・活動日数の stat を冒頭に置き、すぐ寄付ボタンに繋ぐ構成が誠実"
+  },
+  {
+    "url": "https://fts.unocha.org/",
+    "why": "Financial Tracking Service は目標額に対する充足率を mono の数字テーブルで可視化していて、装飾なしの説得力がある"
+  },
+  {
+    "url": "https://www.acaps.org/",
+    "why": "人道支援アナリストのbriefing noteがPDF的な硬さでWeb化されていて、切迫した情報密度のお手本"
+  }
+]

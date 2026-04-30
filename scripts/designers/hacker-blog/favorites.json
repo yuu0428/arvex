@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://danluu.com",
+    "why": "装飾ゼロ・左寄せプレーンテキストで、内容密度だけで読ませる原典"
+  },
+  {
+    "url": "https://jvns.ca",
+    "why": "monospace 寄りの素朴なレイアウトと手書き zine が技術的誠実さと両立している"
+  },
+  {
+    "url": "https://fasterthanli.me",
+    "why": "1段組みの長文 deep-dive と行番号付き code block が読書体験の核になっている"
+  },
+  {
+    "url": "https://www.benkuhn.net",
+    "why": "セリフ最小・データと論理だけで信頼を作る essay site の理想形"
+  },
+  {
+    "url": "https://www.kalzumeus.com",
+    "why": "Patrick McKenzie の実務散文。装飾せず固有名詞と数字で語る姿勢が手本"
+  },
+  {
+    "url": "https://drewdevault.com",
+    "why": "monospace 風の硬派な個人サイトで、OSS 活動の実績がそのまま信頼になっている"
+  },
+  {
+    "url": "https://lcamtuf.coredump.cx",
+    "why": "90s 然としたミニマルな HTML に濃い security 知見が詰まっており、皮より中身という思想の極北"
+  }
+]

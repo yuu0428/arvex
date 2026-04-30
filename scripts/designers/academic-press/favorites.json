@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://mitpress.mit.edu/",
+    "why": "学術出版の情報階層と serif 主体の格式が、自分の設計言語そのもの"
+  },
+  {
+    "url": "https://www.cabinetmagazine.org/",
+    "why": "号数・章番号で構成される独立系学術誌の質感、装飾を排した活字の権威"
+  },
+  {
+    "url": "https://www.nplusonemag.com/",
+    "why": "editorial serif と blockquote 主体のリード文処理が小節階層の手本"
+  },
+  {
+    "url": "https://www.utp.or.jp/",
+    "why": "東京大学出版会の和文 serif と書誌情報の整然とした列挙が日本語版の基準点"
+  },
+  {
+    "url": "https://www.lrb.co.uk/",
+    "why": "London Review of Books の号・著者 bio・abstract 形式の引用処理が完全に自分の文法"
+  },
+  {
+    "url": "https://www.are.na/",
+    "why": "オフホワイト地 + 細罫線 + small caps ラベルで構造の精度のみで信頼を出す UI"
+  },
+  {
+    "url": "https://thegradient.pub/",
+    "why": "学生・研究者の独立系ジャーナルとして著者属性と本文階層を厳密に出している"
+  }
+]

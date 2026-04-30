@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.formula1.com/",
+    "why": "fixture・standings・driver roster が極太 condensed と数字 mono で構造化された、競技データ表現の教科書"
+  },
+  {
+    "url": "https://www.nba.com/",
+    "why": "選手 portrait grid と schedule table が黒背景でチームカラー accent と共に走る、roster 主役設計の原型"
+  },
+  {
+    "url": "https://overwatchleague.com/",
+    "why": "eスポーツの roster card と match fixture を condensed headline + mono score で成立させた稀有な例"
+  },
+  {
+    "url": "https://www.uefa.com/uefachampionsleague/",
+    "why": "fixture・standings・group table の階層が深い黒地に competition color で整理され、データと熱量が同居"
+  },
+  {
+    "url": "https://www.olympics.com/",
+    "why": "競技別 schedule と medal table が圧倒的な情報量で並びつつ、極太 display が大会の祝祭性を担保"
+  },
+  {
+    "url": "https://www.lecoqsportif.com/",
+    "why": "アスレチックブランドの中で数字背番号と condensed italic を hero に立てる視覚言語が arena-athletic そのもの"
+  },
+  {
+    "url": "https://www.chiefs.com/",
+    "why": "NFL 公式の中でも roster grid・game schedule・stats の三点が dark + red accent で完璧に階層化されている"
+  }
+]

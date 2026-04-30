@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.ndl.go.jp/",
+    "why": "国立国会図書館のサイトは件数表示と分類リンクで構成された書誌的整然さの教科書"
+  },
+  {
+    "url": "https://openlibrary.org/",
+    "why": "1 行 1 エントリの目録体裁と ISBN/著者ラベルがそのまま UI 言語になっている"
+  },
+  {
+    "url": "https://archive.org/",
+    "why": "膨大なエントリを分類番号と日付で淡々と並べる索引主義の極致"
+  },
+  {
+    "url": "https://www.discogs.com/",
+    "why": "リリース情報をフィールドラベルと罫線だけで提示する書誌レコード的データベース美"
+  },
+  {
+    "url": "https://www.imdb.com/",
+    "why": "人物・作品を相互参照する索引構造を装飾なしの行とメタデータで支える"
+  },
+  {
+    "url": "https://www.are.na/",
+    "why": "channel と block の純粋なリスト構造、装飾より分類を信頼する設計"
+  },
+  {
+    "url": "https://text.npr.org/",
+    "why": "見出しと日付だけで成立する text-only ニュースリスト、行密度と整合性で語る範例"
+  }
+]

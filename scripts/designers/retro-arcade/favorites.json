@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.lexaloffle.com/pico-8.php",
+    "why": "PICO-8 公式。ファンタジーコンソール文化の総本山で、ピクセルと CRT 美学のバイブル"
+  },
+  {
+    "url": "https://www.bitsnbites.eu/",
+    "why": "ダークな背景に scanline 風の質感、pixel font とブロック装飾で構成された個人 retro computing サイト"
+  },
+  {
+    "url": "https://int10h.org/oldschool-pc-fonts/",
+    "why": "VGA / EGA 時代の bitmap フォントを蒐集する archive。低解像度フォント愛の極北"
+  },
+  {
+    "url": "https://defenderofthefavicon.neocities.org/",
+    "why": "Neocities の個人ドット絵サイトで、blocky な GIF と pixel 枠の手作り感が完璧な 90s web 標本"
+  },
+  {
+    "url": "https://tic80.com/",
+    "why": "TIC-80 ファンタジーコンソール公式。CRT 緑 phosphor とピクセル UI を web にそのまま持ち込んだ作り"
+  },
+  {
+    "url": "https://wiki.xxiivv.com/site/home.html",
+    "why": "Hundred Rabbits の dithered モノクロ wiki。dithering を構造の語彙にした唯一無二の editorial pixel 美学"
+  },
+  {
+    "url": "https://nesdev.org/",
+    "why": "NES homebrew コミュニティのハブ。装飾を削ぎ落とした生 HTML + ピクセルアイコンで成立するアーカイブ的 retro web"
+  }
+]

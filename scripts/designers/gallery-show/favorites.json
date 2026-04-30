@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.moma.org/calendar/exhibitions",
+    "why": "controlled grid と会期 metadata の前景化が、展示を Web で体験させる aesthetic の原点だから"
+  },
+  {
+    "url": "https://www.tate.org.uk/whats-on",
+    "why": "serif 見出し + sans label の 2 軸で curator の声を静かに通す構成が理想形だから"
+  },
+  {
+    "url": "https://www.2121designsight.jp/",
+    "why": "余白の取り方とキャプション密度で「展示室の静謐」をそのまま Web に翻訳しているから"
+  },
+  {
+    "url": "https://www.mori.art.museum/jp/",
+    "why": "dark バナーでの会場・会期表記と作品 grid の controlled framing が完璧に成立しているから"
+  },
+  {
+    "url": "https://www.serpentinegalleries.org/",
+    "why": "blockquote 的な curator note と作品写真の余白均等が、展示の格をそのまま伝えるから"
+  },
+  {
+    "url": "https://www.fondationbeyeler.ch/",
+    "why": "白地ベースに彩度を抑えた写真を並べる節度ある密度が、空間の格を Web で再現しているから"
+  },
+  {
+    "url": "https://www.dia.org/",
+    "why": "Dia の minimal な作品 grid と作家・年・場所の 3 要素 caption が signature として機能しているから"
+  }
+]

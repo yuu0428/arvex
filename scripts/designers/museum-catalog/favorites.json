@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.rijksmuseum.nl/en/rijksstudio",
+    "why": "object を grid に並べ catalog ID と provenance で語る、自分の設計思想そのもの。"
+  },
+  {
+    "url": "https://www.si.edu/openaccess",
+    "why": "Smithsonian の収蔵物を metadata 帯で淡々と提示する象牙白の学芸員的UI。"
+  },
+  {
+    "url": "https://collections.vam.ac.uk/",
+    "why": "V&A の object detail は寸法・年代・出所が mono 数字で並ぶカタログ美の見本。"
+  },
+  {
+    "url": "https://www.cooperhewitt.org/",
+    "why": "デザイン博物館らしくシリフ見出し+細罫線で object を額装する密度感が好き。"
+  },
+  {
+    "url": "https://publicdomainreview.org/",
+    "why": "editorial と archival metadata の両立、ミュートな配色と serif label の手本。"
+  },
+  {
+    "url": "https://www.are.na/",
+    "why": "蒐集物を grid に淡々と並べる block/channel 構造が museum-catalog の Web 翻案として理想。"
+  },
+  {
+    "url": "https://collection.kyohaku.go.jp/",
+    "why": "京都国立博物館の e-museum、和文 serif と catalog 番号の並びが日本語環境での参照点。"
+  }
+]
