@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.theatlantic.com",
+    "why": "serif 大見出し + sans 本文の mixed typography と、写真カード grid で記事 index を眺めて選ばせる構成が、自分の理想そのもの"
+  },
+  {
+    "url": "https://restofworld.org",
+    "why": "国際テック報道誌として、差し色アクセント + 非対称 card grid + 細い罫線で section を切る editorial UI が完成度高い"
+  },
+  {
+    "url": "https://www.thedial.world",
+    "why": "独立系国際ジャーナリズム誌。serif display 見出しの大胆さと、写真カード + キャプションの密度で「眺めて選ぶ」体験を作っている"
+  },
+  {
+    "url": "https://www.niemanlab.org",
+    "why": "ジャーナリズム研究の発信媒体として、card grid と section ごとの背景切り替えで活動密度を伝える index 設計が秀逸"
+  },
+  {
+    "url": "https://pudding.cool",
+    "why": "ビジュアル・ジャーナリズムの index ページ自体が card collection になっており、団体の活動の豊かさを伝える参照として最適"
+  },
+  {
+    "url": "https://www.documentjournal.com",
+    "why": "serif × sans の mixed typography とアンバー寄りの差し色、写真主導の card grid で知的好奇心を刺激するトーンを出している"
+  },
+  {
+    "url": "https://www.huckmag.com",
+    "why": "independent culture magazine として、太い border-top で section を区切り、写真カード + 短いデックで活動を index 化する手法が参考になる"
+  }
+]

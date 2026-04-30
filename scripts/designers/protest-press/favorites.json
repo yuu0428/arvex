@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://theintercept.com",
+    "why": "蛍光黄の hot tag と condensed 見出し、byline / timestamp の厳格な提示が protest-press の原型として完成している"
+  },
+  {
+    "url": "https://www.propublica.org",
+    "why": "調査報道の重みを serif 本文と mono ラベルだけで支え、装飾なしに「これは調べた言葉だ」と伝える誠実さの基準点"
+  },
+  {
+    "url": "https://www.themarshallproject.org",
+    "why": "刑事司法という重い題材を、罫線一本と timestamp の積み重ねだけで紙面化している抑制の効いたレイアウト"
+  },
+  {
+    "url": "https://www.motherjones.com",
+    "why": "INVESTIGATION ラベルと黒地反転の使い分けが教科書的で、煽りに堕ちない hot tag 運用を学べる"
+  },
+  {
+    "url": "https://www.typeinvestigations.org",
+    "why": "report ベースの section が罫線と byline だけで構成され、形式そのものが信頼を担保するという思想に最も近い"
+  },
+  {
+    "url": "https://www.documentjournal.com",
+    "why": "condensed 極太見出しと mono のメタ情報が混在する誌面構造を Web に持ち込んだ実例として参照価値が高い"
+  },
+  {
+    "url": "https://restofworld.org",
+    "why": "国際調査ジャーナリズムを mono タグ + serif 本文 + 抑えた配色で扱い、装飾を排した告発フォーマットの現代版として優れている"
+  }
+]

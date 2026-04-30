@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://docs.djangoproject.com/",
+    "why": "左 sidebar の version switcher と密度ある本文、章立てされた reference と topic guide の分離が docs の理想型"
+  },
+  {
+    "url": "https://kubernetes.io/docs/home/",
+    "why": "巨大な情報量を 3 ペインで破綻なく捌く構造設計が、複雑な技術団体ページの参照点になる"
+  },
+  {
+    "url": "https://docs.python.org/3/",
+    "why": "装飾を捨てて type と余白だけで階層を作る潔さ、anchor 追従と inline code の扱いが完璧"
+  },
+  {
+    "url": "https://tailwindcss.com/docs",
+    "why": "コードブロックと実例 preview が並走する読み物 UI、accent 1 色運用の手本"
+  },
+  {
+    "url": "https://htmx.org/docs/",
+    "why": "個人運営の OSS docs の素朴さと密度、装飾ゼロで信頼を勝ち取る editorial な技術文書"
+  },
+  {
+    "url": "https://12factor.net/ja/",
+    "why": "章番号で構造を示し背景色も画像も使わない、テキストだけで完結する技術文書の極北"
+  },
+  {
+    "url": "https://bun.sh/docs",
+    "why": "ダーク基調の code block と白基調の本文のコントラスト設計、左 nav の active border が美しい"
+  }
+]

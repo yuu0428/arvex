@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://pudding.cool",
+    "why": "短い散文と罫線チャートが交互に積み重なってひとつの論を組み立てる、データエッセイの教科書だから。"
+  },
+  {
+    "url": "https://ourworldindata.org",
+    "why": "serif 本文と質素なチャートだけで巨大な論点を語り切る誠実さが理想形だから。"
+  },
+  {
+    "url": "https://www.economist.com/graphic-detail",
+    "why": "一文・一チャート・一結論というリズムが私のセクション構成原則そのものだから。"
+  },
+  {
+    "url": "https://flowingdata.com",
+    "why": "装飾を削いで数字に語らせる Nathan Yau の編集姿勢に毎回うなずかされるから。"
+  },
+  {
+    "url": "https://parametric.press",
+    "why": "学術的な論考と inline の数値表現が散文の流れを止めずに同居している稀有な独立媒体だから。"
+  },
+  {
+    "url": "https://pitinteractive.com",
+    "why": "Pitch Interactive の作品集は罫線とタイポグラフィだけで巨大データを読ませる手本だから。"
+  },
+  {
+    "url": "https://www.nathanyau.com",
+    "why": "個人サイトの素朴な serif 組版と数値の置き方が、私が作りたい余白感に最も近いから。"
+  }
+]

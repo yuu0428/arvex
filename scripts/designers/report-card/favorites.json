@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.pudding.cool/",
+    "why": "数字とチャートで物語を語るデータジャーナリズムの極北。証拠としての数値の使い方が完璧"
+  },
+  {
+    "url": "https://ourworldindata.org/",
+    "why": "1チャート1問いの徹底、グレー＋アクセント1色のチャート設計、巨大数字＋短いキャプションの教科書"
+  },
+  {
+    "url": "https://www.gatesfoundation.org/goalkeepers/report/",
+    "why": "社会インパクトを巨大数字＋mono書体＋証言で見せるannual reportのウェブ翻訳の理想形"
+  },
+  {
+    "url": "https://stripe.press/",
+    "why": "派手さを削ぎ落とした誠実な余白設計と tabular nums の数字組版、editorial と report の中間"
+  },
+  {
+    "url": "https://www.economist.com/graphic-detail",
+    "why": "1グラフ1主張、薄いグリッド線、外出しlegendというチャート規範を毎日アップデートし続けている"
+  },
+  {
+    "url": "https://flowingdata.com/",
+    "why": "装飾を排して数字そのものに語らせる、データ可視化の倫理を徹底している個人メディア"
+  },
+  {
+    "url": "https://www.nber.org/",
+    "why": "学術系の素っ気ないグリッドと太い横罫1本、根拠が信頼の核という設計思想がそのまま出ている"
+  }
+]

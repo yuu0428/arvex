@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.laphamsquarterly.org/",
+    "why": "号やテーマごとの蓄積を目録的に並べる archive index 構造そのものが、自分の設計思想の原型"
+  },
+  {
+    "url": "https://www.cabinetmagazine.org/",
+    "why": "号・記事をシリーズ単位で淡々と縦積みし、serif と細罫線だけで知的密度を出す editorial の手本"
+  },
+  {
+    "url": "https://www.nplusonemag.com/",
+    "why": "オンライン版でも紙の階層（kicker / 見出し / リード）を崩さず、連載アーカイブを誠実に見せている"
+  },
+  {
+    "url": "https://granta.com/",
+    "why": "issue と contributor のクロスリファレンスを serif 中心の落ち着いた一覧で構成し、蓄積を資産として提示している"
+  },
+  {
+    "url": "https://www.thewhitereview.org/",
+    "why": "Cormorant 系のクラシカルな字形と generous な余白で、interview / essay / poetry の体系を archival に見せる独立批評誌"
+  },
+  {
+    "url": "https://thepointmag.com/",
+    "why": "差し色 1 色 + 罫線のミニマルな editorial palette で、symposium や連載の構造を index として読ませている"
+  },
+  {
+    "url": "https://www.are.na/",
+    "why": "channel / block の蓄積をカード装飾なしの目録として並べる思想が、自分の archive-as-index の理想に最も近い"
+  }
+]

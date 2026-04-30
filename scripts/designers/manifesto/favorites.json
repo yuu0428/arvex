@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://solidproject.org/",
+    "why": "Tim Berners-Lee の Solid 宣言が章立てで読ませる構造になっており、思想を Web に置く typography の手本"
+  },
+  {
+    "url": "https://indieweb.org/",
+    "why": "「自分のサイトで自分を表現する」という立場宣言が wiki 的に堆積し、装飾を排して声の一貫性で読ませている"
+  },
+  {
+    "url": "https://www.gnu.org/philosophy/free-sw.html",
+    "why": "Four Freedoms を serif 大見出しで淡々と読ませる、Web に置かれた思想文書の原型"
+  },
+  {
+    "url": "https://anildash.com/",
+    "why": "個人の倫理的立場を長文で読み通させる editorial、宣言文としての blog の理想形"
+  },
+  {
+    "url": "https://www.are.na/",
+    "why": "「アルゴリズムに抗うリサーチ空間」という思想が UI の余白と serif の選択に貫かれている"
+  },
+  {
+    "url": "https://maggieappleton.com/",
+    "why": "digital gardening の主張と essay が章立てで、premise→claim の構造を Web で実装している稀有な個人サイト"
+  },
+  {
+    "url": "https://criticalengineering.org/",
+    "why": "The Critical Engineering Manifesto そのものが黒地白文字センター揃えで、宣言フォーマットの教科書"
+  }
+]

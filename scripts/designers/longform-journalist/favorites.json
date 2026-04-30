@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.themarshallproject.org/",
+    "why": "刑事司法という1つのテーマを章立て長文で深掘りし、serif 本文と引用 block が「読む価値」を宣言している"
+  },
+  {
+    "url": "https://aeon.co/essays",
+    "why": "1 本のエッセイを縦スクロールで最後まで読ませる設計、sparse な写真と generous な余白が思考の呼吸を作る"
+  },
+  {
+    "url": "https://magazine.atavist.com/",
+    "why": "章番号と progress indicator で読了を約束する、Web longform の原型そのもの"
+  },
+  {
+    "url": "https://www.propublica.org/article/the-deadly-toll-of-amazons-trucking-boom",
+    "why": "調査報道の feature page が章立て・引用・一次資料の引用 block で「単純化できない現実」を誠実に提示する"
+  },
+  {
+    "url": "https://longform.org/",
+    "why": "長文ジャーナリズムだけを serif と細い罫線で淡々と編む姿勢、装飾を一切排した編集者の手つき"
+  },
+  {
+    "url": "https://www.texasmonthly.com/the-culture/cormac-mccarthy-final-interview/",
+    "why": "1 本のインタビューを章立てで構築し、ペーパーホワイト地に深いインク黒と最小の accent で本文の連続感を保つ"
+  },
+  {
+    "url": "https://epicmagazine.com/",
+    "why": "1 つの物語を映画的に読了させる構成で、章区切りと引用 block がドキュメンタリーの読後感を Web に再現している"
+  }
+]

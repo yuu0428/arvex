@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://linear.app",
+    "why": "sidebar・status pill・keyboard-first の product UI を web ページに昇華した教科書。"
+  },
+  {
+    "url": "https://vercel.com/design",
+    "why": "dashboard 的な密度と tabular-nums の数値美学が page 全体を支配している基準点。"
+  },
+  {
+    "url": "https://mercury.com",
+    "why": "banking UI の primitives（table・pill・slim topbar）をマーケサイトでそのまま信頼に転換している。"
+  },
+  {
+    "url": "https://cron.com",
+    "why": "week view の grid と細い border、status の色遣いが web 上でそのまま操作画面のテンションを保っている。"
+  },
+  {
+    "url": "https://railway.com",
+    "why": "dark の dashboard 的構成と service card の格子で『動いているプロダクト』の質感を front page から伝えてくる。"
+  },
+  {
+    "url": "https://retool.com/glean",
+    "why": "data table を主役に据えて KPI と顧客ロゴを淡々と並べるレイアウトが、自分の section 設計の手本。"
+  },
+  {
+    "url": "https://attio.com",
+    "why": "CRM の record view を hero に据えた構成で、UI primitive をそのまま signature にする思想が一致している。"
+  }
+]

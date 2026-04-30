@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.brookings.edu",
+    "why": "政策提言の editorial grammar の原典。章構成・footnote・recommendations の体系性が紙の機関誌と地続きで、信頼が装飾なしに立ち上がる。"
+  },
+  {
+    "url": "https://www.rand.org",
+    "why": "research report をそのまま web に翻訳した稀有な例。serif 本文 + 章番号 + 参考文献の三層が「熟考された文書」のシグナルとして完璧に機能している。"
+  },
+  {
+    "url": "https://www.oecd.org",
+    "why": "policy note の階層構造（Executive summary → Findings → Recommendations）が URL とレイアウトに一貫して反映されていて、論点を追う動線が美しい。"
+  },
+  {
+    "url": "https://www.nira.or.jp",
+    "why": "NIRA Discussion Paper の和文機関誌としての佇まい。明朝の本文と番号付き提言、控えめな深青のリンクが「読後に意見が変わる HP」を体現している。"
+  },
+  {
+    "url": "https://www.iips.org",
+    "why": "working paper の library 的アーカイブ性が好み。装飾を削り、執筆者・発行年・要旨だけで誌面を構成する潔さが学術的権威の本質を示している。"
+  },
+  {
+    "url": "https://www.cigionline.org",
+    "why": "Centre for International Governance Innovation の長文 essay レイアウト。serif 本文・mono の脚注番号・水平罫線の section 区切りが論文 UI のお手本。"
+  },
+  {
+    "url": "https://www.lrb.co.uk",
+    "why": "London Review of Books — 政策誌ではないが、editorial typography の規律と長文を読ませる行間設計が、提言書 HP が学ぶべき可読性の基準そのもの。"
+  }
+]
